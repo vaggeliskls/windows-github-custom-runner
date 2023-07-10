@@ -2,6 +2,8 @@
 # Username: Administrator, vagrant
 # Password: vagrant
 set -eou pipefail
+# Replace environmental variable to Vagrandfile
+envsubst < Vagrantfile > Vagrantfile
 
 chown root:kvm /dev/kvm
 
