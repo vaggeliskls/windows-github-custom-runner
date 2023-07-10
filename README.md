@@ -1,5 +1,5 @@
 # Windows Github Custom Runner 
-A implementation of windows github custom runner based on vagrant VM and docker compose. The VM is created inside a container using vagrant. This strategy makes the deployment of windows action runners plug and play. 
+A implementation of windows github custom runner based on vagrant VM, libvirt and docker compose. The VM is created inside a container using vagrant and libvirt. This strategy makes the deployment of windows action runners trivial and plug and play. 
 
 # Prerequisites
 
