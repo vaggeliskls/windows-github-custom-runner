@@ -5,9 +5,9 @@ Vagrant.configure("2") do |config|
     config.vm.network "forwarded_port", guest: 445, host: 445
     config.vm.provision "shell", inline: "Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False"
     config.vm.provider "libvirt" do |libvirt|
-        libvirt.memory = 50000 # 50GB
-        libvirt.cpus = 10
-        libvirt.machine_virtual_size = 100
+        libvirt.memory = $MEMORY
+        libvirt.cpus = $CPU
+        libvirt.machine_virtual_size = $DISK_SIZE
     end
     config.winrm.max_tries = 300 # default is 20
     config.winrm.retry_delay = 5 #seconds. This is the defaul value and just here for documentation.
@@ -32,10 +32,9 @@ Vagrant.configure("2") do |config|
         # github actions
         mkdir actions-runner 
         Set-Location actions-runner
-        Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.305.0/actions-runner-win-x64-2.305.0.zip -OutFile actions-runner-win-x64-2.305.0.zip
-        if((Get-FileHash -Path actions-runner-win-x64-2.305.0.zip -Algorithm SHA256).Hash.ToUpper() -ne '3a4afe6d9056c7c63ecc17f4db32148e946454f2384427b0a4565b7690ef7420'.ToUpper()){ throw 'Computed checksum did not match' }
-        Expand-Archive actions-runner-win-x64-2.305.0.zip -DestinationPath .
-        ./config.cmd --name windows_x64_vagrant --replace --unattended --url <ORGANIZATION URL> --labels windows,win_x64,windows_x64 --pat <HERE WE ADD OUR PERSONAL ACCESS TOKEN WITH GITHUB ACTIONS PERMISSIONS>
+        Invoke-WebRequest -Uri $GITHUB_RUNNER_URL -OutFile $GITHUB_RUNNER_FILE
+        Expand-Archive $GITHUB_RUNNER_FILE -DestinationPath .
+        ./config.cmd --name $GITHUB_RUNNER_NAME --replace --unattended --url $ORGANIZATION_URL --labels $GITHUB_RUNNER_LABELS --pat $PAT
         ./run.cmd
     SHELL
 end
