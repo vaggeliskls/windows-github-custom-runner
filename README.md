@@ -8,7 +8,7 @@ A implementation of windows github custom runner based on vagrant VM, libvirt an
 
 # Deployment Guide
 
-1. Update on Vagrantfile
+1. Update the environmental file .env
     - Organization URL
     - PAT: Personal access token
 2. Run: `docker-compose up -d`
