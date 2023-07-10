@@ -1,4 +1,3 @@
-# https://github.com/SecurityWeekly/vulhub-lab
 Vagrant.configure("2") do |config|
 
     config.vm.box = "peru/windows-server-2022-standard-x64-eval"
@@ -36,7 +35,7 @@ Vagrant.configure("2") do |config|
         Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.305.0/actions-runner-win-x64-2.305.0.zip -OutFile actions-runner-win-x64-2.305.0.zip
         if((Get-FileHash -Path actions-runner-win-x64-2.305.0.zip -Algorithm SHA256).Hash.ToUpper() -ne '3a4afe6d9056c7c63ecc17f4db32148e946454f2384427b0a4565b7690ef7420'.ToUpper()){ throw 'Computed checksum did not match' }
         Expand-Archive actions-runner-win-x64-2.305.0.zip -DestinationPath .
-        ./config.cmd --name windows_x64_vagrant --replace --unattended --url https://github.com/turintech --labels windows,win_x64,windows_x64 --pat <HERE WE ADD OUR PERSONAL ACCESS TOKEN WITH GITHUB ACTIONS PERMISSIONS>
+        ./config.cmd --name windows_x64_vagrant --replace --unattended --url <ORGANIZATION URL> --labels windows,win_x64,windows_x64 --pat <HERE WE ADD OUR PERSONAL ACCESS TOKEN WITH GITHUB ACTIONS PERMISSIONS>
         ./run.cmd
     SHELL
 end

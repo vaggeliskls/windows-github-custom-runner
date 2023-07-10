@@ -1,6 +1,5 @@
 version: "3.9"
-# Remote desktop connect rdesktop <beast ip>:3389
-#  or xfreerdp 192.168.58.243:3389
+
 services:
   win10:
     build:
