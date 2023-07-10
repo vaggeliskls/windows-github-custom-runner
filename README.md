@@ -1,5 +1,5 @@
 # Windows Github Custom Runner 
-A Windows github custom runner based on vagrant vm and docker compose
+A implementation of windows github custom runner based on vagrant VM and docker compose. The VM is created inside a container using vagrant. This strategy makes the deployment of windows action runners plug and play. 
 
 # Prerequisites
 
@@ -34,3 +34,4 @@ The default users based on vagrant image are
 
 - [Windows Vagrant Tutorial](https://github.com/SecurityWeekly/vulhub-lab)
 - [Vagrant image: peru/windows-server-2022-standard-x64-eval](peru/windows-server-2022-standard-x64-eval)
+- [Vagrant by HashiCorp](https://www.vagrantup.com/)
