@@ -14,6 +14,7 @@ RUN apt-get update -y && \
     linux-image-$(uname -r) \
     curl \
     net-tools \
+    gettext-base \
     jq && \
     apt-get autoremove -y && \
     apt-get clean
