@@ -26,7 +26,8 @@ RUN curl -O https://releases.hashicorp.com/vagrant/2.2.19/vagrant_2.2.19_x86_64.
     vagrant init peru/windows-server-2022-standard-x64-eval
 
 COPY Vagrantfile /
-COPY --chmod=777 startup.sh /
+COPY startup.sh /
+RUN chmod +x startup.sh
 
 ENTRYPOINT ["/startup.sh"]
 CMD ["/bin/bash"]
