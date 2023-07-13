@@ -8,10 +8,49 @@ A implementation of windows github custom runner based on vagrant VM, libvirt an
 
 # Deployment Guide
 
-1. Update the environmental file .env
+1. Create/Update the environmental file `.env`
     - Organization URL
     - PAT: Personal access token
-2. Run: `docker-compose up -d`
+```
+# Github action settings
+GITHUB_RUNNER_NAME=windows_x64_vagrant
+GITHUB_RUNNER_VERSION=2.305.0
+GITHUB_RUNNER_FILE=actions-runner-win-x64-${GITHUB_RUNNER_VERSION}.zip
+GITHUB_RUNNER_URL=https://github.com/actions/runner/releases/download/v${GITHUB_RUNNER_VERSION}/${GITHUB_RUNNER_FILE}
+GITHUB_RUNNER_LABELS=windows,win_x64,windows_x64
+PAT=<Replace with your personal access token>
+ORGANIZATION_URL=<Organization url>
+# Vagrant image settings
+MEMORY=50000 # 50GB
+CPU=4
+DISK_SIZE=100
+```
+2. Create `docker-compose.yml`
+```yaml
+version: "3.9"
+
+services:
+  win10:
+    image:
+    container_name: win10
+    hostname: win10
+    env_file: .env
+    stdin_open: true
+    tty: true
+    privileged: true
+    # runtime: nvidia
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    ports:
+      - 3389:3389
+```
+3. Run: `docker-compose up -d`
 
 > The PAT token needs Read and Write access to organization self hosted runners
 
