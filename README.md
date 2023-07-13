@@ -70,3 +70,4 @@ The default users based on vagrant image are
 - [Windows Vagrant Tutorial](https://github.com/SecurityWeekly/vulhub-lab)
 - [Vagrant image: peru/windows-server-2022-standard-x64-eval](https://app.vagrantup.com/peru/boxes/windows-server-2022-standard-x64-eval)
 - [Vagrant by HashiCorp](https://www.vagrantup.com/)
+- [Windows Virtual Machine in a Linux Docker Container](https://medium.com/axon-technologies/installing-a-windows-virtual-machine-in-a-linux-docker-container-c78e4c3f9ba1)
