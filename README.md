@@ -12,12 +12,6 @@ A implementation of windows github custom runner based on vagrant VM, libvirt an
     - Organization URL
     - PAT: Personal access token
 ```
-# Github action settings
-GITHUB_RUNNER_NAME=windows_x64_vagrant
-GITHUB_RUNNER_VERSION=2.305.0
-GITHUB_RUNNER_FILE=actions-runner-win-x64-${GITHUB_RUNNER_VERSION}.zip
-GITHUB_RUNNER_URL=https://github.com/actions/runner/releases/download/v${GITHUB_RUNNER_VERSION}/${GITHUB_RUNNER_FILE}
-GITHUB_RUNNER_LABELS=windows,win_x64,windows_x64
 PAT=<Replace with your personal access token>
 ORGANIZATION_URL=<Organization url>
 # Vagrant image settings
