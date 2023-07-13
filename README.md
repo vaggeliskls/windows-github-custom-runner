@@ -15,7 +15,7 @@ A implementation of windows github custom runner based on vagrant VM, libvirt an
 PAT=<Replace with your personal access token>
 ORGANIZATION_URL=<Organization url>
 # Vagrant image settings
-MEMORY=10000 # 10GB
+MEMORY=8000 # 8GB
 CPU=4
 DISK_SIZE=100
 ```
@@ -26,8 +26,6 @@ version: "3.9"
 services:
   win10:
     image: ghcr.io/vaggeliskls/windows-github-custom-runner:latest
-    container_name: win10
-    hostname: win10
     env_file: .env
     stdin_open: true
     tty: true
@@ -40,19 +38,8 @@ services:
     devices:
       - /dev/kvm
       - /dev/net/tun
-    ports:
-      - 3389:3389
-    networks:
-      win10-net:
-        ipv4_address: 10.1.1.16
-
-networks:
-  win10-net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.1.1.0/24
-          gateway: 10.1.1.1
+    deploy:
+      replicas: 1
 ```
 3. Run: `docker-compose up -d`
 

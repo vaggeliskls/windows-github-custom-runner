@@ -34,7 +34,7 @@ Vagrant.configure("2") do |config|
         Set-Location actions-runner
         Invoke-WebRequest -Uri $GITHUB_RUNNER_URL -OutFile $GITHUB_RUNNER_FILE
         Expand-Archive $GITHUB_RUNNER_FILE -DestinationPath .
-        ./config.cmd --name $GITHUB_RUNNER_NAME --replace --unattended --url $ORGANIZATION_URL --labels $GITHUB_RUNNER_LABELS --pat $PAT
+        ./config.cmd --name $GITHUB_RUNNER_NAME_$RANDOM --replace --unattended --url $ORGANIZATION_URL --labels $GITHUB_RUNNER_LABELS --pat $PAT
         ./run.cmd
     SHELL
 end
