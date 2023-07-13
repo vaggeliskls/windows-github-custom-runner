@@ -3,7 +3,7 @@
 # Password: vagrant
 set -eou pipefail
 # Replace environmental variable to Vagrandfile
-envsubst < Vagrantfile > Vagrantfile
+envsubst < Vagrantfile > exported.txt && mv exported.txt Vagrantfile
 
 chown root:kvm /dev/kvm
 
