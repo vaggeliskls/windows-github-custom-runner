@@ -7,16 +7,7 @@ services:
       context: .
     container_name: win10
     hostname: win10
-    environment:
-      GITHUB_RUNNER_VERSION: ${GITHUB_RUNNER_VERSION}
-      GITHUB_RUNNER_FILE: ${GITHUB_RUNNER_FILE}
-      GITHUB_RUNNER_URL: ${GITHUB_RUNNER_URL}
-      GITHUB_RUNNER_LABELS: ${GITHUB_RUNNER_LABELS}
-      PAT: ${PAT}
-      ORGANIZATION_URL: ${ORGANIZATION_URL}
-      MEMORY: ${MEMORY}
-      CPU: ${CPU}
-      DISK_SIZE: ${DISK_SIZE}
+    env_file: .env
     stdin_open: true
     tty: true
     privileged: true
