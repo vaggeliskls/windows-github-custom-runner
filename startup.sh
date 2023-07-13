@@ -3,7 +3,7 @@
 # Password: vagrant
 set -eou pipefail
 # Replace environmental variable to Vagrandfile
-export RANDOM_STR=$$
+export RANDOM_STR=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 10 | head -n 1)
 envsubst < Vagrantfile > exported.txt && mv exported.txt Vagrantfile
 
 chown root:kvm /dev/kvm
