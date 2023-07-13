@@ -48,6 +48,17 @@ services:
       - /dev/net/tun
     ports:
       - 3389:3389
+    networks:
+      win10-net:
+        ipv4_address: 10.1.1.16
+
+networks:
+  win10-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.1.1.0/24
+          gateway: 10.1.1.1
 ```
 3. Run: `docker-compose up -d`
 
