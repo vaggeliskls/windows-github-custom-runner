@@ -13,6 +13,9 @@ A implementation of windows github custom runner based on vagrant VM, libvirt an
     - PAT: Personal access token
 2. Run: `docker-compose up -d`
 
+> The PAT token needs Read and Write access to organization self hosted runners
+
+
 # Remote Desktop
 For debugging purposes or testing you can always connect to the VM with remote desktop softwares.
 
@@ -30,8 +33,10 @@ The default users based on vagrant image are
     - Username: vagrant
     - Password: vagrant
 
+
+
 # References
 
 - [Windows Vagrant Tutorial](https://github.com/SecurityWeekly/vulhub-lab)
-- [Vagrant image: peru/windows-server-2022-standard-x64-eval](peru/windows-server-2022-standard-x64-eval)
+- [Vagrant image: peru/windows-server-2022-standard-x64-eval](https://app.vagrantup.com/peru/boxes/windows-server-2022-standard-x64-eval)
 - [Vagrant by HashiCorp](https://www.vagrantup.com/)
