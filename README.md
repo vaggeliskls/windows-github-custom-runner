@@ -31,14 +31,13 @@ version: "3.9"
 
 services:
   win10:
-    image:
+    image: ghcr.io/vaggeliskls/windows-github-custom-runner:latest
     container_name: win10
     hostname: win10
     env_file: .env
     stdin_open: true
     tty: true
     privileged: true
-    # runtime: nvidia
     cap_add:
       - NET_ADMIN
       - SYS_ADMIN
