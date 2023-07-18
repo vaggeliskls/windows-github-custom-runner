@@ -24,11 +24,7 @@ Vagrant.configure("2") do |config|
         Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_enterprise.exe" -OutFile "vs_enterprise.exe"
         ./vs_enterprise.exe --quiet --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended # --passive
         # Resize disk
-        # Variable specifying the drive you want to extend  
-        $drive_letter = "C"  
-        # Script to get the partition sizes and then resize the volume  
-        $size = (Get-PartitionSupportedSize -DriveLetter $drive_letter)  
-        Resize-Partition -DriveLetter $drive_letter -Size $size.SizeMax  
+        Resize-Partition -DriveLetter "C" -Size (Get-PartitionSupportedSize -DriveLetter "C").SizeMax  
         # github actions
         mkdir actions-runner 
         Set-Location actions-runner
