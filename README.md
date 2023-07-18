@@ -51,7 +51,7 @@ For debugging purposes or testing you can always connect to the VM with remote d
 
 Some software that used when developed was 
 1. Linux: Remote desktop connect `rdesktop <ip>:3389`
-2. MacOS: `xfreerdp <ip>:3389`
+2. MacOS: [Windows remote desktop](https://apps.apple.com/us/app/microsoft-remote-desktop/id1295203466?mt=12)
 
 ## User login
 The default users based on vagrant image are 
