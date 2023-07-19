@@ -26,8 +26,8 @@ Vagrant.configure("2") do |config|
         # Install rtools40
         Invoke-WebRequest -Uri "https://cran.r-project.org/bin/windows/Rtools/rtools40-x86_64.exe" -OutFile "rtools.exe"
         Start-Process "./rtools.exe" -Argument "/Silent" -PassThru -Wait
-        ${DOLLAR}env:PATH += ";C:\rtools40\usr\bin;C:\rtools40\mingw64\bin"
-        C:\rtools40\msys2.exe pacman -Sy --noconfirm mingw-w64-x86_64-make
+        [Environment]::SetEnvironmentVariable("PATH", ${DOLLAR}Env:PATH + ";C:\\rtools40\\usr\\bin;C:\\rtools40\\mingw64\\bin", [EnvironmentVariableTarget]::Machine)
+        C:\\rtools40\\msys2.exe pacman -Sy --noconfirm mingw-w64-x86_64-make
         Remove-Item -Path ./rtools.exe
         # Resize disk
         Resize-Partition -DriveLetter "C" -Size (Get-PartitionSupportedSize -DriveLetter "C").SizeMax  
