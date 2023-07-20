@@ -11,7 +11,7 @@ Vagrant.configure("2") do |config|
     end
     config.winrm.max_tries = 300 # default is 20
     config.winrm.retry_delay = 5 #seconds. This is the defaul value and just here for documentation.
-    config.vm.provision "shell", powershell_elevated_interactive: false, privileged: false, inline: <<-SHELL
+    config.vm.provision "shell", powershell_elevated_interactive: true, privileged: true, inline: <<-SHELL
         # Install Chocolatey - Also Grabs 7Zip
         Invoke-Expression "& { $(Invoke-RestMethod 'https://aka.ms/install-powershell.ps1') } -AddToPath"
         Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
@@ -34,17 +34,14 @@ Vagrant.configure("2") do |config|
         New-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
         # github actions
         Invoke-WebRequest -Uri ${GITHUB_RUNNER_URL} -OutFile ${GITHUB_RUNNER_FILE}
-        Expand-Archive -LiteralPath ${GITHUB_RUNNER_FILE} -DestinationPath runner -Force;
-        C:\\runner\\config.cmd --name ${GITHUB_RUNNER_NAME} --replace --unattended --url ${ORGANIZATION_URL} --labels ${GITHUB_RUNNER_LABELS} --pat ${PAT}
-        C:\\runner\\run.cmd
-        # Remove-Item -Path C:\\runner-* -Recurse -Force
-        # for ($runner = 1 ; $runner -le ${RUNNERS} ; $runner++){  
-        #     Write-Host "Running  $runner";
-        #     $random = -join ((48..57) + (97..122) | Get-Random -Count 8 | % {[char]$_});
-        #     Expand-Archive -LiteralPath ${GITHUB_RUNNER_FILE} -DestinationPath runner-$random -Force;
-        #     Invoke-Expression -Command "C:\\runner-$random\\config.cmd --name ${GITHUB_RUNNER_NAME}_$random --replace --unattended --url ${ORGANIZATION_URL} --labels ${GITHUB_RUNNER_LABELS} --pat ${PAT}";
-        #     Start-Process -NoNewWindow "C:\\runner-$random\\run.cmd";
-        # }
+        Remove-Item -Path C:\\runner-* -Recurse -Force
+        for ($runner = 1 ; $runner -le ${RUNNERS} ; $runner++){  
+            Write-Host "Running  $runner";
+            $random = -join ((48..57) + (97..122) | Get-Random -Count 8 | % {[char]$_});
+            Expand-Archive -LiteralPath ${GITHUB_RUNNER_FILE} -DestinationPath runner-$random -Force;
+            Invoke-Expression -Command "C:\\runner-$random\\config.cmd --name ${GITHUB_RUNNER_NAME}_$random --replace --unattended --url ${ORGANIZATION_URL} --labels ${GITHUB_RUNNER_LABELS} --pat ${PAT}";
+            Start-Process "C:\\runner-$random\\run.cmd";
+        }
     SHELL
 end
   
