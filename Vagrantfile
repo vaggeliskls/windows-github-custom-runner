@@ -5,9 +5,9 @@ Vagrant.configure("2") do |config|
     config.vm.network "forwarded_port", guest: 445, host: 445
     config.vm.provision "shell", inline: "Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False"
     config.vm.provider "libvirt" do |libvirt|
-        libvirt.memory = $MEMORY
-        libvirt.cpus = $CPU
-        libvirt.machine_virtual_size = $DISK_SIZE
+        libvirt.memory = ${MEMORY}
+        libvirt.cpus = ${CPU}
+        libvirt.machine_virtual_size = ${DISK_SIZE}
     end
     config.winrm.max_tries = 300 # default is 20
     config.winrm.retry_delay = 5 #seconds. This is the defaul value and just here for documentation.
@@ -15,9 +15,7 @@ Vagrant.configure("2") do |config|
         # Install Chocolatey - Also Grabs 7Zip
         Invoke-Expression "& { $(Invoke-RestMethod 'https://aka.ms/install-powershell.ps1') } -AddToPath"
         Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-        choco install 7zip.install -y 
-        choco install git.install -y
-        choco install jq -y
+        choco install 7zip.install git.install jq -y 
         # c:/ default location
         Set-Location /
         # Install build tools
@@ -26,19 +24,27 @@ Vagrant.configure("2") do |config|
         # Install rtools40
         Invoke-WebRequest -Uri "https://cran.r-project.org/bin/windows/Rtools/rtools40-x86_64.exe" -OutFile "rtools.exe"
         Start-Process "./rtools.exe" -Argument "/Silent" -PassThru -Wait
-        [Environment]::SetEnvironmentVariable("PATH", ${DOLLAR}Env:Path + ";C:\\rtools40\\usr\\bin;C:\\rtools40\\mingw64\\bin", [EnvironmentVariableTarget]::Machine)
-        ${DOLLAR}env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
+        [Environment]::SetEnvironmentVariable("PATH", $env:Path + ";C:\\rtools40\\usr\\bin;C:\\rtools40\\mingw64\\bin", [EnvironmentVariableTarget]::Machine)
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
         C:\\rtools40\\msys2.exe pacman -Sy --noconfirm mingw-w64-x86_64-make
         Remove-Item -Path ./rtools.exe
         # Resize disk
-        Resize-Partition -DriveLetter "C" -Size (Get-PartitionSupportedSize -DriveLetter "C").SizeMax  
+        Resize-Partition -DriveLetter "C" -Size (Get-PartitionSupportedSize -DriveLetter "C").SizeMax
+        # Enable too long paths
+        New-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
         # github actions
-        mkdir actions-runner 
-        Set-Location actions-runner
-        Invoke-WebRequest -Uri $GITHUB_RUNNER_URL -OutFile $GITHUB_RUNNER_FILE
-        Expand-Archive $GITHUB_RUNNER_FILE -DestinationPath .
-        ./config.cmd --name ${GITHUB_RUNNER_NAME}_${RANDOM_STR} --replace --unattended --url $ORGANIZATION_URL --labels $GITHUB_RUNNER_LABELS --pat $PAT
-        ./run.cmd
+        Invoke-WebRequest -Uri ${GITHUB_RUNNER_URL} -OutFile ${GITHUB_RUNNER_FILE}
+        Expand-Archive -LiteralPath ${GITHUB_RUNNER_FILE} -DestinationPath runner -Force;
+        C:\\runner\\config.cmd --name ${GITHUB_RUNNER_NAME} --replace --unattended --url ${ORGANIZATION_URL} --labels ${GITHUB_RUNNER_LABELS} --pat ${PAT}
+        C:\\runner\\run.cmd
+        # Remove-Item -Path C:\\runner-* -Recurse -Force
+        # for ($runner = 1 ; $runner -le ${RUNNERS} ; $runner++){  
+        #     Write-Host "Running  $runner";
+        #     $random = -join ((48..57) + (97..122) | Get-Random -Count 8 | % {[char]$_});
+        #     Expand-Archive -LiteralPath ${GITHUB_RUNNER_FILE} -DestinationPath runner-$random -Force;
+        #     Invoke-Expression -Command "C:\\runner-$random\\config.cmd --name ${GITHUB_RUNNER_NAME}_$random --replace --unattended --url ${ORGANIZATION_URL} --labels ${GITHUB_RUNNER_LABELS} --pat ${PAT}";
+        #     Start-Process -NoNewWindow "C:\\runner-$random\\run.cmd";
+        # }
     SHELL
 end
   
