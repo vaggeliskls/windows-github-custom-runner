@@ -14,6 +14,7 @@ A implementation of windows github custom runner (x64) based on vagrant VM, libv
 ```
 PAT=<Replace with your personal access token>
 ORGANIZATION_URL=<Organization url>
+RUNNERS=2
 # Vagrant image settings
 MEMORY=8000 # 8GB
 CPU=4
@@ -40,6 +41,8 @@ services:
       - /dev/net/tun
     deploy:
       replicas: 1
+    ports:
+      - 3389:3389
 ```
 3. Run: `docker-compose up -d`
 
