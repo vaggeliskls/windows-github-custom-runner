@@ -39,8 +39,6 @@ services:
     devices:
       - /dev/kvm
       - /dev/net/tun
-    deploy:
-      replicas: 1
     ports:
       - 3389:3389
 ```
