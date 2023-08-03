@@ -31,8 +31,8 @@ ENV GITHUB_RUNNER_VERSION=2.306.0
 ENV GITHUB_RUNNER_FILE=actions-runner-win-x64-${GITHUB_RUNNER_VERSION}.zip
 ENV GITHUB_RUNNER_URL=https://github.com/actions/runner/releases/download/v${GITHUB_RUNNER_VERSION}/${GITHUB_RUNNER_FILE}
 ENV GITHUB_RUNNER_LABELS=windows,win_x64,windows_x64,windows_vagrant_action
-ENV PRIVILEGED=false
-ENV INTERACTIVE=false
+ENV PRIVILEGED=true
+ENV INTERACTIVE=true
 ENV DOLLAR=$
 
 COPY Vagrantfile /Vagrantfile.tmp
