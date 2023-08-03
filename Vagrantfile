@@ -11,7 +11,7 @@ Vagrant.configure("2") do |config|
     end
     config.winrm.max_tries = 300 # default is 20
     config.winrm.retry_delay = 5 #seconds. This is the defaul value and just here for documentation.
-    config.vm.provision "shell", powershell_elevated_interactive: true, privileged: true, inline: <<-SHELL
+    config.vm.provision "shell", powershell_elevated_interactive: false, privileged: false, inline: <<-SHELL
         # Install Chocolatey - Also Grabs 7Zip
         Invoke-Expression "& { $(Invoke-RestMethod 'https://aka.ms/install-powershell.ps1') } -AddToPath"
         Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
