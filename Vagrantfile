@@ -32,6 +32,9 @@ Vagrant.configure("2") do |config|
         Resize-Partition -DriveLetter "C" -Size (Get-PartitionSupportedSize -DriveLetter "C").SizeMax
         # Enable too long paths
         New-ItemProperty -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+        $username = "VAGRANTVM\\vagrant"
+        $password = "vagrant"
+        $credentials = New-Object System.Management.Automation.PSCredential -ArgumentList @($username,(ConvertTo-SecureString -String $password -AsPlainText -Force))
         # github actions
         Invoke-WebRequest -Uri ${GITHUB_RUNNER_URL} -OutFile ${GITHUB_RUNNER_FILE}
         Remove-Item -Path C:\\runner-* -Recurse -Force
@@ -41,6 +44,7 @@ Vagrant.configure("2") do |config|
             Expand-Archive -LiteralPath ${GITHUB_RUNNER_FILE} -DestinationPath runner-$random -Force;
             Invoke-Expression -Command "C:\\runner-$random\\config.cmd --name ${GITHUB_RUNNER_NAME}_$random --replace --unattended --url ${ORGANIZATION_URL} --labels ${GITHUB_RUNNER_LABELS} --pat ${PAT}";
             Start-Process "C:\\runner-$random\\run.cmd";
+            Start-Process powershell.exe "C:\\runner-$random\\run.cmd" -Credential ($credentials) ;
         }
     SHELL
 end

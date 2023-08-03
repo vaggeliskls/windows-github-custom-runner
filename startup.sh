@@ -4,11 +4,13 @@
 set -eou pipefail
 # Replace environmental variable to Vagrandfile
 export RANDOM_STR=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 10 | head -n 1)
-envsubst \
-'${PRIVILEGED},${INTERACTIVE},${MEMORY},${CPU},${DISK_SIZE},${GITHUB_RUNNER_FILE},${GITHUB_RUNNER_NAME},${RANDOM_STR},${RUNNERS},${GITHUB_RUNNER_LABELS},${ORGANIZATION_URL},${PAT},${GITHUB_RUNNER_URL}' \
-< Vagrant.file > Vagrantfile
 
-rm -rf Vagrant.file
+if [ ! -f Vagrantfile ]
+then
+    envsubst \
+    '${PRIVILEGED},${INTERACTIVE},${MEMORY},${CPU},${DISK_SIZE},${GITHUB_RUNNER_FILE},${GITHUB_RUNNER_NAME},${RANDOM_STR},${RUNNERS},${GITHUB_RUNNER_LABELS},${ORGANIZATION_URL},${PAT},${GITHUB_RUNNER_URL}' \
+    < Vagrantfile.tmp > Vagrantfile
+fi
 
 chown root:kvm /dev/kvm
 

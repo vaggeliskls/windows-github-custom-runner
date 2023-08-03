@@ -35,9 +35,8 @@ ENV PRIVILEGED=false
 ENV INTERACTIVE=false
 ENV DOLLAR=$
 
-COPY Vagrant.file /
+COPY Vagrantfile /Vagrantfile.tmp
 COPY startup.sh /
 RUN chmod +x startup.sh
 
-ENTRYPOINT ["/startup.sh"]
-CMD ["/bin/bash"]
+CMD ["/startup.sh"]
