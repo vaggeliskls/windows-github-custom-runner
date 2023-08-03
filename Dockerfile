@@ -38,5 +38,7 @@ ENV DOLLAR=$
 COPY Vagrantfile /Vagrantfile.tmp
 COPY startup.sh /
 RUN chmod +x startup.sh
+RUN rm -rf /Vagrantfile
 
-CMD ["/startup.sh"]
+ENTRYPOINT ["/startup.sh"]
+CMD ["/bin/bash"]
