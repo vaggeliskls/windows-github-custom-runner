@@ -27,7 +27,7 @@ RUN curl -O https://releases.hashicorp.com/vagrant/2.2.19/vagrant_2.2.19_x86_64.
 
 # Github action settings
 ENV GITHUB_RUNNER_NAME=windows_x64_vagrant
-ENV GITHUB_RUNNER_VERSION=2.306.0
+ENV GITHUB_RUNNER_VERSION=2.307.1
 ENV GITHUB_RUNNER_FILE=actions-runner-win-x64-${GITHUB_RUNNER_VERSION}.zip
 ENV GITHUB_RUNNER_URL=https://github.com/actions/runner/releases/download/v${GITHUB_RUNNER_VERSION}/${GITHUB_RUNNER_FILE}
 ENV GITHUB_RUNNER_LABELS=windows,win_x64,windows_x64,windows_vagrant_action
