@@ -14,7 +14,7 @@ A implementation of windows github custom runner (x64) based on vagrant VM, libv
 ```
 PAT=<Replace with your personal access token>
 ORGANIZATION_URL=<Organization url>
-RUNNERS=2
+RUNNERS=1
 # Vagrant image settings
 MEMORY=8000 # 8GB
 CPU=4
