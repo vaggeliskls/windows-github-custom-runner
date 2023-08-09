@@ -69,6 +69,7 @@ The default users based on vagrant image are
 
 # References
 
+- [Windows in docker container](https://github.com/vaggeliskls/windows-in-docker-container)
 - [Windows Vagrant Tutorial](https://github.com/SecurityWeekly/vulhub-lab)
 - [Vagrant image: peru/windows-server-2022-standard-x64-eval](https://app.vagrantup.com/peru/boxes/windows-server-2022-standard-x64-eval)
 - [Vagrant by HashiCorp](https://www.vagrantup.com/)
