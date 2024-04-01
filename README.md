@@ -9,11 +9,11 @@ A implementation of windows github custom runner (x64) based on vagrant VM, libv
 # Deployment Guide
 
 1. Create/Update the environmental file `.env`
-    - Organization URL
+    - Runner URL
     - PAT: Personal access token
 ```
 PAT=<Replace with your personal access token>
-ORGANIZATION_URL=<Organization url>
+RUNNER_URL=<runner url>
 RUNNERS=1
 # Vagrant image settings
 MEMORY=8000 # 8GB
