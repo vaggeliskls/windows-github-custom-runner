@@ -43,7 +43,7 @@ Vagrant.configure("2") do |config|
             Write-Host "Running  $runner";
             $random = -join ((48..57) + (97..122) | Get-Random -Count 8 | % {[char]$_});
             Expand-Archive -LiteralPath ${GITHUB_RUNNER_FILE} -DestinationPath runner-$random -Force;
-            Invoke-Expression -Command "C:\\runner-$random\\config.cmd --name ${GITHUB_RUNNER_NAME}_$random --replace --unattended --url ${ORGANIZATION_URL} --labels ${GITHUB_RUNNER_LABELS} --pat ${PAT}";
+            Invoke-Expression -Command "C:\\runner-$random\\config.cmd --name ${GITHUB_RUNNER_NAME}_$random --replace --unattended --url ${RUNNER_URL} --labels ${GITHUB_RUNNER_LABELS} --pat ${PAT}";
             Start-Process "C:\\runner-$random\\run.cmd" -Credential ($credentials);
         }
     SHELL
