@@ -2,10 +2,15 @@
 
 Explore an innovative, efficient, and cost-effective approach to deploying a custom GitHub Runner that runs in a containerized Windows OS (x64) environment on a Linux system. This project leverages the robust capabilities of Vagrant VM, libvirt, and docker-compose which allows for seamless management of a Windows instance just like any Docker container. The added value here lies in the creation of a plug-and-play solution, significantly enhancing convenience, optimizing resource allocation, and integrating flawlessly with existing workflows. This strategy enriches CI/CD pipeline experiences in various dev-ops environments, providing a smooth and comprehensive approach that does not require prior knowledge of VM creation. 
 
+⭐ **Don't forget to star the project if it helped you!**
+
 # 📋 Prerequisites
 
 - [docker](https://www.docker.com/)  version 24 or higher.
 - [docker-compose](https://www.docker.com/) version 1.18 or higher.
+
+<!-- # 🚥 PAT - Organization Github Personal Access token
+1.  -->
 
 # 🚀 Deployment Guide
 
@@ -31,14 +36,12 @@ DISK_SIZE=100
 version: "3.9"
 
 services:
-  win10:
+  windows-github-runner-vm:
     image: ghcr.io/vaggeliskls/windows-github-custom-runner:latest
     env_file: .env
     stdin_open: true
     tty: true
     privileged: true
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup
     ports:
       - 3389:3389
 ```
