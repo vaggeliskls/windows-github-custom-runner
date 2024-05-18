@@ -9,21 +9,41 @@ Explore an innovative, efficient, and cost-effective approach to deploying a cus
 - [docker](https://www.docker.com/)  version 24 or higher.
 - [docker-compose](https://www.docker.com/) version 1.18 or higher.
 
-<!-- # 🚥 PAT - Organization Github Personal Access token
-1.  -->
+# 🚥 Authentication for Self-Hosted Runners
+For the purpose of authenticating your custom self-hosted runners, we offer two viable authentication methods:
+
+1. Personal Access Token (`PAT`) - The Personal Access Token is a static, manually created token that provides secure access to GitHub. This offers a long-lived method of authentication (The PAT token needs Read and Write access to organization self-hosted runners).
+
+2. Registration Token (`TOKEN`) - The Registration Token is a dynamic, short-lived token generated automatically by GitHub during the creation of a new self-hosted runner. This provides a temporary but immediate method of authentication.
+
+> **Note:** Only one of these authentication methods is necessary. Choose the method that best fits your
 
 # 🚀 Deployment Guide
 
 1. Create/Update the environmental file `.env`
   - `PAT`: Personal access token from GitHub
+  - `TOKEN`: Short lived Github token
   - `RUNNER_URL`: The URL of the GitHub that the runner connects to
   - `RUNNERS`: Number of runners
   - `MEMORY`: Amount of memory for the Vagrant image (in MB)
   - `CPU`: Number of CPUs for the Vagrant image
   - `DISK_SIZE`: Disk size for the Vagrant image (in GB)
+
+### Example with PAT
 ```env
 # Runner settings
-PAT=<Replace with your personal access token>
+PAT=<Your Personal access token>
+RUNNER_URL=<runner url>
+RUNNERS=1
+# Vagrant image settings
+MEMORY=8000 # 8GB
+CPU=4
+DISK_SIZE=100
+```
+### Example with TOKEN
+```env
+# Runner settings
+TOKEN=<Your short lived acess token>
 RUNNER_URL=<runner url>
 RUNNERS=1
 # Vagrant image settings
@@ -46,9 +66,6 @@ services:
       - 3389:3389
 ```
 3. Run: `docker-compose up -d`
-
-> The PAT token needs Read and Write access to organization self-hosted runners
-
 
 # 🌐 Access via Remote Desktop
 For debugging purposes or testing you can always connect to the VM with remote desktop softwares.
