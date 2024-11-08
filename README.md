@@ -57,7 +57,7 @@ version: "3.9"
 
 services:
   windows-github-runner-vm:
-    image: ghcr.io/vaggeliskls/windows-github-custom-runner:latest
+    image: docker.io/vaggeliskls/windows-github-custom-runner:latest
     env_file: .env
     stdin_open: true
     tty: true
