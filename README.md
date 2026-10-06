@@ -47,7 +47,7 @@ Two authentication methods are supported. Set **one** of them in `.env`:
     | `INSTALL_RTOOLS` | `true` | Install Rtools 4.0 with `mingw-w64-x86_64-make` |
     | `VERSION` | `2022` | dockur Windows release (`2022` = Windows Server 2022 evaluation) |
     | `RAM_SIZE` / `CPU_CORES` / `DISK_SIZE` | `8G` / `4` / `100G` | VM size |
-    | `WIN_USERNAME` / `WIN_PASSWORD` | `Docker` / `admin` | Local administrator created by the install, also the RDP login |
+    | `WIN_USERNAME` / `WIN_PASSWORD` | `admin` / `runner` | Local administrator created by the install, also the RDP login |
 
 2. Start it and follow the container side (ISO download, QEMU boot):
 
@@ -116,7 +116,7 @@ That removes the old registrations and re-registers with the new count, labels, 
 
 # 🔑 User Login
 
-The unattended install creates one local administrator, `WIN_USERNAME` / `WIN_PASSWORD` from `.env` (default `Docker` / `admin`). Change the password before exposing RDP beyond your network.
+The unattended install creates one local administrator, `WIN_USERNAME` / `WIN_PASSWORD` from `.env` (default `admin` / `runner`). Change the password before exposing RDP beyond your network.
 
 # 🔁 Migrating from 1.x
 
@@ -129,7 +129,7 @@ The unattended install creates one local administrator, `WIN_USERNAME` / `WIN_PA
 | Runner process | `run.cmd` in an interactive session | Windows service (`RUNNER_MODE=interactive` restores the old behaviour) |
 | Runner name | `<prefix>_<container hostname>_<n>` | `<prefix>_<RUNNER_HOST_ID>_<n>` |
 | Default labels | `...,windows_vagrant_action` | `...,windows_dockur_action`. Workflows that use `runs-on: windows_vagrant_action` should switch to `windows_x64`, or add the old label to `GITHUB_RUNNER_LABELS` |
-| Windows login | `vagrant` / `vagrant` | `Docker` / `admin` |
+| Windows login | `vagrant` / `vagrant` | `admin` / `runner` |
 | SSH on 2222 | yes | no; use RDP or the web console |
 
 Remove the old runners from GitHub (*Settings → Actions → Runners*) after the new ones are online; their names differ, so `--replace` does not take them over.

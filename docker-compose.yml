@@ -16,8 +16,8 @@ services:
       RAM_SIZE: "${RAM_SIZE:-8G}"
       CPU_CORES: "${CPU_CORES:-4}"
       DISK_SIZE: "${DISK_SIZE:-100G}"
-      USERNAME: "${WIN_USERNAME:-Docker}"
-      PASSWORD: "${WIN_PASSWORD:-admin}"
+      USERNAME: "${WIN_USERNAME:-admin}"
+      PASSWORD: "${WIN_PASSWORD:-runner}"
     devices:
       - /dev/kvm
       - /dev/net/tun

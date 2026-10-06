@@ -214,7 +214,7 @@ function Install-Runners($Config) {
     # Service account: the auto-logon user unless RUNNER_SERVICE_ACCOUNT says otherwise.
     # config.cmd turns ".\user" into "<computer>\user" and grants it "Log on as a service".
     $serviceAccount = Get-Setting $Config 'RUNNER_SERVICE_ACCOUNT' ".\$env:USERNAME"
-    $servicePassword = Get-Setting $Config 'WIN_PASSWORD' 'admin'
+    $servicePassword = Get-Setting $Config 'WIN_PASSWORD' 'runner'
     $builtinAccount = $serviceAccount -like 'NT AUTHORITY\*' -or $serviceAccount -eq 'LocalSystem'
 
     $zip = Join-Path $Temp "actions-runner-win-x64-$version.zip"
