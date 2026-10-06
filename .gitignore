@@ -1,0 +1,5 @@
+# Local configuration (contains PAT/TOKEN)
+.env
+
+# Vagrant state
+.vagrant/
