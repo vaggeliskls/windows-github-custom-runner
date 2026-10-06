@@ -4,8 +4,9 @@ on:
   release:
     types: [published]
 
-env:
-  TAG_NAME: ${{ github.ref_name }}
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   publish-image:
@@ -18,7 +19,7 @@ jobs:
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
       - name: Checkout current repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Docker meta
         id: meta

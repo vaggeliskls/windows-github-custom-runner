@@ -1,0 +1,28 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: lint
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v7
+
+      - name: Dockerfile (hadolint)
+        uses: hadolint/hadolint-action@v3.5.0
+        with:
+          dockerfile: Dockerfile
+
+      - name: Vagrantfile (Ruby syntax)
+        run: ruby -c Vagrantfile
+
+      - name: Workflows (actionlint)
+        uses: raven-actions/actionlint@v2
