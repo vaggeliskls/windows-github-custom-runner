@@ -1,19 +1,38 @@
+# GitHub Actions runners on a Windows Server 2022 VM, built on dockur/windows.
+# dockur boots QEMU directly and installs Windows from the Microsoft evaluation
+# ISO on first start; oem/install.bat then installs the toolchain and registers
+# the runners. Later starts boot the installed VM, no provisioning.
+#
+# Settings live in .env (copy .env.example). Compose reads it for the ${...}
+# values below, and the same file is bind-mounted into the VM's shared folder
+# so install.ps1 can read RUNNER_URL, PAT, RUNNERS, ... from there. Nothing from
+# .env goes into /oem: dockur bakes that folder into the install ISO it keeps
+# under ./storage, and a PAT should not end up in there.
 services:
-  windows-github-runner-vm:
-    image: docker.io/vaggeliskls/windows-github-custom-runner:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-    platform: linux/amd64
-    # Part of every runner's name; give each container its own hostname
-    hostname: windows-github-runner
-    env_file: .env
-    stdin_open: true
-    tty: true
-    privileged: true
-    cgroup: host
-    restart: unless-stopped
-    # runtime: nvidia
+  windows-github-runner:
+    image: dockurr/windows:6.06
+    environment:
+      VERSION: "${VERSION:-2022}"
+      RAM_SIZE: "${RAM_SIZE:-8G}"
+      CPU_CORES: "${CPU_CORES:-4}"
+      DISK_SIZE: "${DISK_SIZE:-100G}"
+      USERNAME: "${WIN_USERNAME:-Docker}"
+      PASSWORD: "${WIN_PASSWORD:-admin}"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
     ports:
-      - 3389:3389 # RDP
-      - 2222:2222 # SSH
+      - 8006:8006 # web console (noVNC), handy during the first install
+      - 3389:3389/tcp # RDP
+      - 3389:3389/udp
+    volumes:
+      - ./oem:/oem:ro # install.bat + install.ps1, copied to C:\OEM at install time
+      - ./storage:/storage # Windows disk + install ISO, persists across restarts
+      - ./shared:/shared # \\host.lan\Data (Z:) in the VM; install.log lands here
+      # read by install.ps1. Every process in the VM, CI jobs included, can read
+      # this share: comment the line out once the runners are registered.
+      - ./.env:/shared/runner.env:ro
+    restart: unless-stopped
+    stop_grace_period: 2m

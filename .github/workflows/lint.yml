@@ -16,13 +16,19 @@ jobs:
       - name: Checkout current repository
         uses: actions/checkout@v7
 
-      - name: Dockerfile (hadolint)
-        uses: hadolint/hadolint-action@v3.5.0
-        with:
-          dockerfile: Dockerfile
+      - name: docker-compose.yml
+        run: cp .env.example .env && docker compose config -q
 
-      - name: Vagrantfile (Ruby syntax)
-        run: ruby -c Vagrantfile
+      - name: install.ps1 (parse + PSScriptAnalyzer)
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/oem/install.ps1", [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) { $errors | ForEach-Object { Write-Error $_.Message }; exit 1 }
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $findings = Invoke-ScriptAnalyzer -Path oem/install.ps1 -Settings .github/PSScriptAnalyzerSettings.psd1
+          $findings | Format-Table -AutoSize
+          if ($findings) { exit 1 }
 
       - name: Workflows (actionlint)
         uses: raven-actions/actionlint@v2
