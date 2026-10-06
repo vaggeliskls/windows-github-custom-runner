@@ -1,17 +1,19 @@
-version: "3.9"
-
 services:
   windows-github-runner-vm:
     image: docker.io/vaggeliskls/windows-github-custom-runner:latest
     build:
-      dockerfile: ./Dockerfile
       context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    # Part of every runner's name; give each container its own hostname
+    hostname: windows-github-runner
     env_file: .env
     stdin_open: true
     tty: true
     privileged: true
+    cgroup: host
+    restart: unless-stopped
     # runtime: nvidia
     ports:
-      - 3389:3389
-    deploy:
-      replicas: 1
+      - 3389:3389 # RDP
+      - 2222:2222 # SSH
