@@ -17,9 +17,9 @@ services:
       RAM_SIZE: "${RAM_SIZE:-8G}"
       CPU_CORES: "${CPU_CORES:-4}"
       DISK_SIZE: "${DISK_SIZE:-100G}"
-      # QEMU disk I/O backend. dockur picks io_uring, which fails on kernels
-      # before 5.12 with "Failed to initialize io_uring: Cannot allocate memory".
-      DISK_IO: "${DISK_IO:-native}"
+      # QEMU disk I/O backend; empty lets QEMU choose. Set DISK_IO=native in .env
+      # on kernels before 5.12 ("Failed to initialize io_uring" at boot).
+      DISK_IO: "${DISK_IO:-}"
       USERNAME: "${WIN_USERNAME:-admin}"
       PASSWORD: "${WIN_PASSWORD:-runner}"
     devices:
