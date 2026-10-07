@@ -55,15 +55,31 @@ $SetupTask = 'GitHub runner setup'
 $Temp = Join-Path $env:TEMP 'runner-install'
 $RebootRequired = $false
 
-# Progress lines go to the transcript and, while $MirrorLog is set, to the
-# shared folder as well, so the host can follow a run that takes an hour.
-# The full transcript replaces the mirrored lines when the run ends.
-$MirrorLog = -not $AtLogon
 function Write-Log([string]$Message) {
-    $line = '[{0:yyyy-MM-dd HH:mm:ss}] {1}' -f (Get-Date), $Message
-    Write-Host $line
-    if ($MirrorLog) {
-        try { Add-Content -LiteralPath "$Share\install.log" -Value $line } catch { Write-Host "Could not write to $Share ($_)" }
+    Write-Host ('[{0:yyyy-MM-dd HH:mm:ss}] {1}' -f (Get-Date), $Message)
+}
+
+# Runs a native command so that its stdout and stderr end up in the transcript
+# as well as on the console. Windows PowerShell does not record output a program
+# writes straight to the console, and 2>&1 under ErrorActionPreference=Stop
+# would abort the run at the first stderr line. Returns the exit code.
+function Invoke-Native([string]$Exe, [string[]]$Arguments) {
+    $ErrorActionPreference = 'Continue'
+    & $Exe @Arguments 2>&1 | ForEach-Object { "$_" } | Out-Host
+    return $LASTEXITCODE
+}
+
+# Copies the transcript to the shared folder every 10 seconds for as long as
+# the run lasts, so the host sees the same log as the console. The transcript
+# is copied once more after it is closed.
+function Start-LogMirror {
+    $from = $LogFile
+    $to = "$Share\install.log"
+    return Start-Job -ScriptBlock {
+        while ($true) {
+            Copy-Item -LiteralPath $using:from -Destination $using:to -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 10
+        }
     }
 }
 
@@ -207,10 +223,10 @@ function Install-Toolchain($Config, [string[]]$Missing) {
     $wanted = @($packages.Keys | Where-Object { $Missing -contains $_ } | ForEach-Object { $packages[$_] })
     if ($wanted) {
         Write-Log "Installing $($wanted -join ', ') with Chocolatey"
-        choco install -y --no-progress @wanted
-        if ($LASTEXITCODE -notin 0, 1641, 3010) { throw "choco install failed with exit code $LASTEXITCODE" }
+        $code = Invoke-Native 'choco' (@('install', '-y', '--no-progress') + $wanted)
+        if ($code -notin 0, 1641, 3010) { throw "choco install failed with exit code $code" }
         Update-ProcessPath
-        git config --system core.longpaths true
+        Invoke-Native 'git' @('config', '--system', 'core.longpaths', 'true') | Out-Null
     }
 
     if ($Missing -contains 'Visual Studio') {
@@ -247,8 +263,8 @@ function Install-Rtools {
     Add-MachinePath 'C:\rtools40\usr\bin', 'C:\rtools40\mingw64\bin'
 
     Write-Log 'Installing mingw-w64-x86_64-make'
-    & 'C:\rtools40\usr\bin\pacman.exe' -Sy --noconfirm mingw-w64-x86_64-make
-    if ($LASTEXITCODE -ne 0) { throw "pacman failed with exit code $LASTEXITCODE" }
+    $code = Invoke-Native 'C:\rtools40\usr\bin\pacman.exe' @('-Sy', '--noconfirm', 'mingw-w64-x86_64-make')
+    if ($code -ne 0) { throw "pacman failed with exit code $code" }
 }
 
 # --- Runners -----------------------------------------------------------------
@@ -287,8 +303,8 @@ function Remove-Runner([int]$Index, [string[]]$Auth) {
     Get-Process Runner.Listener -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$dir\*" } | Stop-Process -Force
     if (Test-Path -LiteralPath "$dir\.runner") {
         Write-Log 'Removing the previous registration'
-        & "$dir\config.cmd" remove --unattended @Auth | Out-Host
-        if ($LASTEXITCODE -ne 0) { Write-Log "config.cmd remove exited with $LASTEXITCODE, continuing" }
+        $code = Invoke-Native "$dir\config.cmd" (@('remove', '--unattended') + $Auth)
+        if ($code -ne 0) { Write-Log "config.cmd remove exited with $code, continuing" }
     }
     if (Test-Path -LiteralPath $dir) { Remove-Item -LiteralPath $dir -Recurse -Force }
 }
@@ -345,8 +361,8 @@ function Install-Runners($Config) {
             $cfgArgs += @('--runasservice', '--windowslogonaccount', $serviceAccount)
             if (-not $builtinAccount) { $cfgArgs += @('--windowslogonpassword', $servicePassword) }
         }
-        & "$dir\config.cmd" @cfgArgs | Out-Host
-        if ($LASTEXITCODE -ne 0) { throw "config.cmd failed for $name with exit code $LASTEXITCODE" }
+        $code = Invoke-Native "$dir\config.cmd" $cfgArgs
+        if ($code -ne 0) { throw "config.cmd failed for $name with exit code $code" }
 
         if ($mode -eq 'interactive') { Register-InteractiveRunner $i $dir }
     }
@@ -367,6 +383,7 @@ if (-not $identity.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrat
 Start-Transcript -Path $(if ($AtLogon) { $LogonLogFile } else { $LogFile }) | Out-Null
 New-Item -ItemType Directory -Path $Temp -Force | Out-Null
 $status = 'failed'
+$mirror = $null
 try {
     # Registered before anything that can fail, so a bad runner.env still gets
     # a retry at the next boot. Not re-registered from the task itself.
@@ -392,14 +409,14 @@ try {
             return
         }
     }
-    # A real run from here on: switch to the main log and give the host a fresh
-    # in-progress copy of it.
+    # A real run from here on: switch to the main log, clear the old markers and
+    # start mirroring the log to the host.
     if ($AtLogon) {
         Stop-Transcript | Out-Null
         Start-Transcript -Path $LogFile | Out-Null
     }
-    $MirrorLog = $true
-    Remove-Item -LiteralPath "$Share\install.log", "$Share\install.done", "$Share\install.failed" -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath "$Share\install.done", "$Share\install.failed" -Force -ErrorAction SilentlyContinue
+    $mirror = Start-LogMirror
     Write-Log "Using settings from $configFile"
 
     # Idempotent and quick; also grows C: after a DISK_SIZE change on the host.
@@ -429,6 +446,7 @@ try {
     Write-Log $_.ScriptStackTrace
 } finally {
     Remove-Item -LiteralPath $Temp -Recurse -Force -ErrorAction SilentlyContinue
+    if ($mirror) { $mirror | Stop-Job; $mirror | Remove-Job -Force }
     Stop-Transcript | Out-Null
 
     # Report back to the host through the shared folder (./shared). A logon run
