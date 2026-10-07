@@ -48,7 +48,8 @@ $ProgressPreference = 'SilentlyContinue' # Invoke-WebRequest is much faster with
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
 $Share = '\\host.lan\Data'
-$LogFile = 'C:\OEM\install.log'
+$LogFile = 'C:\OEM\install.log'            # last real run
+$LogonLogFile = 'C:\OEM\install-logon.log' # last logon check that found nothing to do
 $ConfigMarker = 'C:\OEM\runner.env.sha256'  # hash of the runner.env the runners were last registered from
 $SetupTask = 'GitHub runner setup'
 $Temp = Join-Path $env:TEMP 'runner-install'
@@ -273,6 +274,25 @@ function Register-InteractiveRunner([int]$Index, [string]$Dir) {
     Start-ScheduledTask -TaskName $taskName
 }
 
+# Takes runner $Index out of GitHub (its service or scheduled task with it) and
+# deletes its folder. Safe to call when there is nothing to remove.
+function Remove-Runner([int]$Index, [string[]]$Auth) {
+    $dir = "C:\runner-$Index"
+    $task = Get-ScheduledTask -TaskName "GitHub runner $Index" -ErrorAction SilentlyContinue
+    if ($task) {
+        $task | Stop-ScheduledTask -ErrorAction SilentlyContinue
+        $task | Unregister-ScheduledTask -Confirm:$false
+    }
+    # Interactive mode: the listener outlives its cmd window and holds files open
+    Get-Process Runner.Listener -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$dir\*" } | Stop-Process -Force
+    if (Test-Path -LiteralPath "$dir\.runner") {
+        Write-Log 'Removing the previous registration'
+        & "$dir\config.cmd" remove --unattended @Auth | Out-Host
+        if ($LASTEXITCODE -ne 0) { Write-Log "config.cmd remove exited with $LASTEXITCODE, continuing" }
+    }
+    if (Test-Path -LiteralPath $dir) { Remove-Item -LiteralPath $dir -Recurse -Force }
+}
+
 function Install-Runners($Config) {
     $url = Get-Setting $Config 'RUNNER_URL'
     $pat = Get-Setting $Config 'PAT'
@@ -300,6 +320,14 @@ function Install-Runners($Config) {
     $pkgUrl = Get-Setting $Config 'GITHUB_RUNNER_URL' "https://github.com/actions/runner/releases/download/v$version/actions-runner-win-x64-$version.zip"
     Invoke-Download $pkgUrl $zip
 
+    # Runners from a previous run: the first $count are replaced in place, any
+    # above the new count (RUNNERS was lowered) are removed for good.
+    $existing = @(Get-ChildItem -LiteralPath 'C:\' -Directory -Filter 'runner-*' | ForEach-Object { [int]($_.Name -replace '^runner-', '') })
+    foreach ($i in ($existing | Where-Object { $_ -gt $count })) {
+        Write-Log "Removing runner $i (RUNNERS is now $count)"
+        Remove-Runner $i $auth
+    }
+
     $names = @()
     for ($i = 1; $i -le $count; $i++) {
         $dir = "C:\runner-$i"
@@ -308,13 +336,7 @@ function Install-Runners($Config) {
         Write-Log "Configuring runner $i of ${count}: $name in $dir"
 
         # A previous registration (re-run) is removed first so --replace has nothing stale to fight.
-        if (Test-Path -LiteralPath "$dir\.runner") {
-            Write-Log 'Removing the previous registration'
-            & "$dir\config.cmd" remove --unattended @auth | Out-Host
-            if ($LASTEXITCODE -ne 0) { Write-Log "config.cmd remove exited with $LASTEXITCODE, continuing" }
-        }
-        Get-ScheduledTask -TaskName "GitHub runner $i" -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false
-        if (Test-Path -LiteralPath $dir) { Remove-Item -LiteralPath $dir -Recurse -Force }
+        Remove-Runner $i $auth
         Expand-Archive -LiteralPath $zip -DestinationPath $dir -Force
 
         $cfgArgs = @('--unattended', '--replace', '--name', $name, '--url', $url, '--labels', $labels) + $auth
@@ -340,7 +362,9 @@ if (-not $identity.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrat
     throw 'Run this script from an elevated PowerShell'
 }
 
-Start-Transcript -Path $LogFile -Append | Out-Null
+# One transcript per run. A logon check writes to its own file so that a boot
+# with nothing to do does not overwrite the log of the last real run.
+Start-Transcript -Path $(if ($AtLogon) { $LogonLogFile } else { $LogFile }) | Out-Null
 New-Item -ItemType Directory -Path $Temp -Force | Out-Null
 $status = 'failed'
 try {
@@ -368,7 +392,12 @@ try {
             return
         }
     }
-    # A real run from here on: give the host a fresh in-progress log.
+    # A real run from here on: switch to the main log and give the host a fresh
+    # in-progress copy of it.
+    if ($AtLogon) {
+        Stop-Transcript | Out-Null
+        Start-Transcript -Path $LogFile | Out-Null
+    }
     $MirrorLog = $true
     Remove-Item -LiteralPath "$Share\install.log", "$Share\install.done", "$Share\install.failed" -Force -ErrorAction SilentlyContinue
     Write-Log "Using settings from $configFile"
