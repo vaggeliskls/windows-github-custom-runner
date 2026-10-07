@@ -9,8 +9,8 @@ updates:
         patterns:
           - "*"
 
-  # Tracks the base image tag in the Dockerfile
-  - package-ecosystem: docker
+  # Tracks the dockurr/windows tag in docker-compose.yml
+  - package-ecosystem: docker-compose
     directory: /
     schedule:
       interval: weekly

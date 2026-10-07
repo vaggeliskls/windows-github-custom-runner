@@ -1,5 +1,6 @@
 # Local configuration (contains PAT/TOKEN)
 .env
 
-# Vagrant state
-.vagrant/
+# VM disk, install ISO and the shared folder
+storage/
+shared/
