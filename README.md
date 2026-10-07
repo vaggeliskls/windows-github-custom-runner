@@ -56,13 +56,13 @@ Two authentication methods are supported. Set **one** of them in `.env`:
     docker compose logs -f
     ```
 
-3. Open `http://<host>:8006` to watch the Windows installation. When the desktop appears, a visible `Install` window runs `C:\OEM\install.bat`. Its log is mirrored to the host:
+3. Open `http://<host>:8006` to watch the Windows installation. When the desktop appears, a visible `Install` window runs `C:\OEM\install.bat`. The window itself shows nothing; progress is mirrored to the host, one line per step:
 
     ```bash
     tail -f shared/install.log
     ```
 
-    `shared/install.done` or `shared/install.failed` appears when it finishes.
+    `shared/install.done` or `shared/install.failed` appears when it finishes, and the log is replaced by the full transcript, including the output of the installers. The first lines take a few minutes to appear while the shared folder comes up.
 
 > **First start takes 40 to 70 minutes**: ISO download (about 5 GB), Windows setup, Visual Studio, Rtools, runner registration. The runners register at the very end. Later starts take a minute or two and need no provisioning.
 

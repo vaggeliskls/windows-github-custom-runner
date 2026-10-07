@@ -54,8 +54,16 @@ $SetupTask = 'GitHub runner setup'
 $Temp = Join-Path $env:TEMP 'runner-install'
 $RebootRequired = $false
 
+# Progress lines go to the transcript and, while $MirrorLog is set, to the
+# shared folder as well, so the host can follow a run that takes an hour.
+# The full transcript replaces the mirrored lines when the run ends.
+$MirrorLog = -not $AtLogon
 function Write-Log([string]$Message) {
-    Write-Host ('[{0:yyyy-MM-dd HH:mm:ss}] {1}' -f (Get-Date), $Message)
+    $line = '[{0:yyyy-MM-dd HH:mm:ss}] {1}' -f (Get-Date), $Message
+    Write-Host $line
+    if ($MirrorLog) {
+        try { Add-Content -LiteralPath "$Share\install.log" -Value $line } catch { Write-Host "Could not write to $Share ($_)" }
+    }
 }
 
 function Update-ProcessPath {
@@ -360,6 +368,9 @@ try {
             return
         }
     }
+    # A real run from here on: give the host a fresh in-progress log.
+    $MirrorLog = $true
+    Remove-Item -LiteralPath "$Share\install.log", "$Share\install.done", "$Share\install.failed" -Force -ErrorAction SilentlyContinue
     Write-Log "Using settings from $configFile"
 
     # Idempotent and quick; also grows C: after a DISK_SIZE change on the host.
