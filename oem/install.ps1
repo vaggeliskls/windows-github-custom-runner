@@ -116,7 +116,7 @@ function Get-ConfigHash([string]$Path) {
 # corrected or changed runner.env is applied by restarting the container.
 function Register-SetupTask {
     $user = "$env:USERDOMAIN\$env:USERNAME"
-    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`" -AtLogon"
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`" -AtLogon"
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
     $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
