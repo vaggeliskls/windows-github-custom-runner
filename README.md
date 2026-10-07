@@ -47,7 +47,6 @@ Two authentication methods are supported. Set **one** of them in `.env`:
     | `INSTALL_RTOOLS` | `true` | Install Rtools 4.0 with `mingw-w64-x86_64-make` |
     | `VERSION` | `2022` | dockur Windows release (`2022` = Windows Server 2022 evaluation) |
     | `RAM_SIZE` / `CPU_CORES` / `DISK_SIZE` | `8G` / `4` / `100G` | VM size |
-| `DISK_IO` | QEMU's choice | QEMU disk I/O backend: `native`, `threads` or `io_uring`. Kernels before 5.12 exit at boot with `Failed to initialize io_uring`; set `native` there |
     | `WIN_USERNAME` / `WIN_PASSWORD` | `admin` / `runner` | Local administrator created by the install, also the RDP login |
 
 2. Start it and follow the container side (ISO download, QEMU boot):

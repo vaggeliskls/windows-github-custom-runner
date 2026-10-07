@@ -17,9 +17,6 @@ services:
       RAM_SIZE: "${RAM_SIZE:-8G}"
       CPU_CORES: "${CPU_CORES:-4}"
       DISK_SIZE: "${DISK_SIZE:-100G}"
-      # QEMU disk I/O backend; empty lets QEMU choose. Set DISK_IO=native in .env
-      # on kernels before 5.12 ("Failed to initialize io_uring" at boot).
-      DISK_IO: "${DISK_IO:-}"
       USERNAME: "${WIN_USERNAME:-admin}"
       PASSWORD: "${WIN_PASSWORD:-runner}"
     devices:
@@ -27,6 +24,15 @@ services:
       - /dev/net/tun
     cap_add:
       - NET_ADMIN
+    # QEMU 10.1+ uses io_uring for its event loop and, on recent kernels, for the
+    # disk. io_uring rings are locked memory, and the container default of a few
+    # hundred KB makes QEMU exit at boot with "Failed to initialize io_uring:
+    # Cannot allocate memory". Unlimited is what the QEMU and Elasticsearch
+    # docs recommend; it is not a privilege.
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     ports:
       - 8006:8006 # web console (noVNC), handy during the first install
       - 3389:3389/tcp # RDP
