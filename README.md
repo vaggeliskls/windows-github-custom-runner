@@ -56,7 +56,7 @@ Two authentication methods are supported. Set **one** of them in `.env`:
     docker compose logs -f
     ```
 
-3. Open `http://<host>:8006` to watch the Windows installation. When the desktop appears, a visible `Install` window runs `C:\OEM\install.bat`. The window shows the live output, and the same log is copied to the host every 10 seconds:
+3. Open `http://<host>:8006` to watch the Windows installation. When the desktop appears, a visible `Install` window runs `C:\OEM\install.bat`. The window shows the live output, and the same log is copied to the host every 2 seconds:
 
     ```bash
     tail -f shared/install.log

@@ -69,7 +69,7 @@ function Invoke-Native([string]$Exe, [string[]]$Arguments) {
     return $LASTEXITCODE
 }
 
-# Copies the transcript to the shared folder every 10 seconds for as long as
+# Copies the transcript to the shared folder every 2 seconds for as long as
 # the run lasts, so the host sees the same log as the console. The transcript
 # is copied once more after it is closed.
 function Start-LogMirror {
@@ -78,7 +78,7 @@ function Start-LogMirror {
     return Start-Job -ScriptBlock {
         while ($true) {
             Copy-Item -LiteralPath $using:from -Destination $using:to -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 10
+            Start-Sleep -Seconds 2
         }
     }
 }
