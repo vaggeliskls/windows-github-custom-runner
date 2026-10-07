@@ -47,6 +47,7 @@ Two authentication methods are supported. Set **one** of them in `.env`:
     | `INSTALL_RTOOLS` | `true` | Install Rtools 4.0 with `mingw-w64-x86_64-make` |
     | `VERSION` | `2022` | dockur Windows release (`2022` = Windows Server 2022 evaluation) |
     | `RAM_SIZE` / `CPU_CORES` / `DISK_SIZE` | `8G` / `4` / `100G` | VM size |
+| `DISK_IO` | `native` | QEMU disk I/O backend. `io_uring` is faster but needs kernel 5.12 or newer; on older kernels QEMU exits at boot with `Failed to initialize io_uring` |
     | `WIN_USERNAME` / `WIN_PASSWORD` | `admin` / `runner` | Local administrator created by the install, also the RDP login |
 
 2. Start it and follow the container side (ISO download, QEMU boot):
@@ -112,7 +113,7 @@ The same can be done from an RDP session, in an elevated PowerShell and without 
 powershell -ExecutionPolicy Bypass -File C:\OEM\install.ps1 -RunnersOnly
 ```
 
-Without `-RunnersOnly` the toolchain steps run again too. To start over completely: `docker compose down`, delete `storage/`, `docker compose up -d`.
+Without `-RunnersOnly` the toolchain steps run again too. To start over completely: `docker compose down`, `sudo rm -rf storage shared` (the container writes them as root), `docker compose up -d`.
 
 `RAM_SIZE`, `CPU_CORES` and `DISK_SIZE` are passed to QEMU, so they apply at the next restart without any install step. `DISK_SIZE` can only grow; the logon task extends `C:` to the new size at that boot.
 
@@ -147,7 +148,7 @@ Remove the old runners from GitHub (*Settings → Actions → Runners*) after th
 # 🛠 Development
 
 - Everything lives in [oem/install.bat](oem/install.bat), [oem/install.ps1](oem/install.ps1) and [docker-compose.yml](docker-compose.yml). There is no image to build.
-- To test script changes, edit `oem/`, delete `storage/` and run `docker compose up -d` again. For runner-only changes, re-run `install.ps1 -RunnersOnly` inside the VM.
+- To test script changes, edit `oem/`, `sudo rm -rf storage` and run `docker compose up -d` again. For runner-only changes, re-run `install.ps1 -RunnersOnly` inside the VM.
 - Every wipe of `storage/` downloads the 5 GB ISO again. To avoid that, download the stock evaluation ISO once (the URL is printed in `docker compose logs` at the start of a first install), keep it outside `storage/`, and enable the `/custom.iso` line in [docker-compose.yml](docker-compose.yml). Do not reuse the ISO from `storage/` for this: dockur has already baked `oem/` into it, so it would install the old scripts.
 - Pull requests run [lint.yml](.github/workflows/lint.yml): `docker compose config`, a PowerShell parse plus [PSScriptAnalyzer](https://github.com/PowerShell/PSScriptAnalyzer) on `install.ps1`, and actionlint on the workflows.
 - Dependabot keeps the GitHub Actions and the `dockurr/windows` tag current.
