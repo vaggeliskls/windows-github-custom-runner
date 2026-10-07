@@ -69,15 +69,29 @@ function Invoke-Native([string]$Exe, [string[]]$Arguments) {
     return $LASTEXITCODE
 }
 
-# Copies the transcript to the shared folder every 2 seconds for as long as
-# the run lasts, so the host sees the same log as the console. The transcript
-# is copied once more after it is closed.
+# Appends whatever the transcript gained to the copy in the shared folder every
+# 2 seconds, so the host sees the same log as the console and 'tail -f' keeps
+# working: the copy only grows, it is never rewritten.
 function Start-LogMirror {
     $from = $LogFile
     $to = "$Share\install.log"
+    Remove-Item -LiteralPath $to -Force -ErrorAction SilentlyContinue
     return Start-Job -ScriptBlock {
+        $offset = 0
         while ($true) {
-            Copy-Item -LiteralPath $using:from -Destination $using:to -Force -ErrorAction SilentlyContinue
+            try {
+                $src = [IO.File]::Open($using:from, 'Open', 'Read', 'ReadWrite')
+                try {
+                    if ($src.Length -gt $offset) {
+                        $buffer = New-Object byte[] ($src.Length - $offset)
+                        $src.Seek($offset, 'Begin') | Out-Null
+                        $read = $src.Read($buffer, 0, $buffer.Length)
+                        $dst = [IO.File]::Open($using:to, 'Append', 'Write', 'Read')
+                        try { $dst.Write($buffer, 0, $read) } finally { $dst.Close() }
+                        $offset += $read
+                    }
+                } finally { $src.Close() }
+            } catch { Write-Verbose "$_" }
             Start-Sleep -Seconds 2
         }
     }
@@ -446,14 +460,19 @@ try {
     Write-Log $_.ScriptStackTrace
 } finally {
     Remove-Item -LiteralPath $Temp -Recurse -Force -ErrorAction SilentlyContinue
-    if ($mirror) { $mirror | Stop-Job; $mirror | Remove-Job -Force }
     Stop-Transcript | Out-Null
+    if ($mirror) {
+        Start-Sleep -Seconds 3 # one more pass of the mirror picks up the transcript footer
+        $mirror | Stop-Job
+        $mirror | Remove-Job -Force
+    }
 
     # Report back to the host through the shared folder (./shared). A logon run
     # that found nothing to do leaves the previous log and marker alone.
     if ($status -ne 'skipped') {
         try {
-            Copy-Item -LiteralPath $LogFile -Destination "$Share\install.log" -Force
+            # Without a mirror (failed before the run started) the host has no log yet.
+            if (-not $mirror) { Copy-Item -LiteralPath $LogFile -Destination "$Share\install.log" -Force }
             Remove-Item -LiteralPath "$Share\install.done", "$Share\install.failed" -Force -ErrorAction SilentlyContinue
             Set-Content -Path "$Share\install.$status" -Value (Get-Date -Format o)
         } catch {
