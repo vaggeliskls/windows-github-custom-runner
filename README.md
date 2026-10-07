@@ -148,6 +148,7 @@ Remove the old runners from GitHub (*Settings → Actions → Runners*) after th
 
 - Everything lives in [oem/install.bat](oem/install.bat), [oem/install.ps1](oem/install.ps1) and [docker-compose.yml](docker-compose.yml). There is no image to build.
 - To test script changes, edit `oem/`, delete `storage/` and run `docker compose up -d` again. For runner-only changes, re-run `install.ps1 -RunnersOnly` inside the VM.
+- Every wipe of `storage/` downloads the 5 GB ISO again. To avoid that, download the stock evaluation ISO once (the URL is printed in `docker compose logs` at the start of a first install), keep it outside `storage/`, and enable the `/custom.iso` line in [docker-compose.yml](docker-compose.yml). Do not reuse the ISO from `storage/` for this: dockur has already baked `oem/` into it, so it would install the old scripts.
 - Pull requests run [lint.yml](.github/workflows/lint.yml): `docker compose config`, a PowerShell parse plus [PSScriptAnalyzer](https://github.com/PowerShell/PSScriptAnalyzer) on `install.ps1`, and actionlint on the workflows.
 - Dependabot keeps the GitHub Actions and the `dockurr/windows` tag current.
 

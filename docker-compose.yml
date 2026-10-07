@@ -31,6 +31,9 @@ services:
     volumes:
       - ./oem:/oem:ro # install.bat + install.ps1, copied to C:\OEM at install time
       - ./storage:/storage # Windows disk + install ISO, persists across restarts
+      # Stock Windows ISO kept outside storage/: a wipe of storage/ then skips
+      # the 5 GB download. Get the URL from the container log of a first start.
+      # - ./win2022.iso:/custom.iso:ro
       - ./shared:/shared # \\host.lan\Data (Z:) in the VM; install.log lands here
       # read by install.ps1. Every process in the VM, CI jobs included, can read
       # this share: comment the line out once the runners are registered.
