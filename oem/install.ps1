@@ -55,7 +55,7 @@ $SetupTask = 'GitHub runner setup'
 $Temp = Join-Path $env:TEMP 'runner-install'
 $RebootRequired = $false
 
-function Write-Log([string]$Message) {
+function Write-Step([string]$Message) {
     Write-Host ('[{0:yyyy-MM-dd HH:mm:ss}] {1}' -f (Get-Date), $Message)
 }
 
@@ -127,8 +127,8 @@ function Read-EnvFile([string]$Path) {
 }
 
 # Returns the path of runner.env, or $null with -Optional when there is none.
-function Find-Config([switch]$Optional) {
-    if ($ConfigPath) { return $ConfigPath }
+function Find-Config([string]$Override, [switch]$Optional) {
+    if ($Override) { return $Override }
     $candidates = @("$Share\runner.env", 'Z:\runner.env', 'C:\OEM\runner.env')
     # The samba share can take a moment to become reachable after logon.
     $deadline = (Get-Date).AddMinutes(5)
@@ -174,14 +174,14 @@ function Test-Enabled($Config, [string]$Key, [bool]$Default = $true) {
 }
 
 function Invoke-Download([string]$Uri, [string]$OutFile) {
-    Write-Log "Downloading $Uri"
+    Write-Step "Downloading $Uri"
     Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
 }
 
 # --- Toolchain ---------------------------------------------------------------
 
 function Initialize-System {
-    Write-Log 'Enabling long paths'
+    Write-Step 'Enabling long paths'
     New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name 'LongPathsEnabled' -Value 1 -PropertyType DWORD -Force | Out-Null
 
     # Grow C: when DISK_SIZE is larger than the partition dockur created
@@ -189,11 +189,11 @@ function Initialize-System {
         $max = (Get-PartitionSupportedSize -DriveLetter C).SizeMax
         $cur = (Get-Partition -DriveLetter C).Size
         if (($max - $cur) -gt 1GB) {
-            Write-Log 'Growing C: to the full virtual disk'
+            Write-Step 'Growing C: to the full virtual disk'
             Resize-Partition -DriveLetter C -Size $max
         }
     } catch {
-        Write-Log "Could not resize C: ($_)"
+        Write-Step "Could not resize C: ($_)"
     }
 }
 
@@ -223,12 +223,12 @@ function Get-MissingTools($Config) {
 
 function Install-Toolchain($Config, [string[]]$Missing) {
     if ($Missing -contains 'PowerShell 7') {
-        Write-Log 'Installing PowerShell 7'
+        Write-Step 'Installing PowerShell 7'
         Invoke-Expression "& { $(Invoke-RestMethod 'https://aka.ms/install-powershell.ps1') } -UseMSI -Quiet"
     }
 
     if ($Missing -contains 'Chocolatey') {
-        Write-Log 'Installing Chocolatey'
+        Write-Step 'Installing Chocolatey'
         Invoke-Expression ((New-Object Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
         Update-ProcessPath
     }
@@ -236,7 +236,7 @@ function Install-Toolchain($Config, [string[]]$Missing) {
     $packages = @{ 'Git' = 'git.install'; 'jq' = 'jq'; '7-Zip' = '7zip.install' }
     $wanted = @($packages.Keys | Where-Object { $Missing -contains $_ } | ForEach-Object { $packages[$_] })
     if ($wanted) {
-        Write-Log "Installing $($wanted -join ', ') with Chocolatey"
+        Write-Step "Installing $($wanted -join ', ') with Chocolatey"
         $code = Invoke-Native 'choco' (@('install', '-y', '--no-progress') + $wanted)
         if ($code -notin 0, 1641, 3010) { throw "choco install failed with exit code $code" }
         Update-ProcessPath
@@ -258,11 +258,11 @@ function Install-VisualStudio([string]$Edition, [string]$Workloads) {
         $vsArgs += @('--add', $workload)
     }
 
-    Write-Log "Installing Visual Studio 2022 $Edition with $Workloads (this takes a while)"
+    Write-Step "Installing Visual Studio 2022 $Edition with $Workloads (this takes a while)"
     $proc = Start-Process -FilePath $exe -ArgumentList $vsArgs -Wait -PassThru
     switch ($proc.ExitCode) {
-        0 { Write-Log 'Visual Studio installed' }
-        3010 { Write-Log 'Visual Studio installed, reboot required'; $script:RebootRequired = $true }
+        0 { Write-Step 'Visual Studio installed' }
+        3010 { Write-Step 'Visual Studio installed, reboot required'; $script:RebootRequired = $true }
         default { throw "Visual Studio installer failed with exit code $($proc.ExitCode)" }
     }
 }
@@ -271,12 +271,12 @@ function Install-Rtools {
     $exe = Join-Path $Temp 'rtools40.exe'
     Invoke-Download 'https://cran.r-project.org/bin/windows/Rtools/rtools40-x86_64.exe' $exe
 
-    Write-Log 'Installing Rtools 4.0'
+    Write-Step 'Installing Rtools 4.0'
     $proc = Start-Process -FilePath $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
     if ($proc.ExitCode -ne 0) { throw "Rtools installer failed with exit code $($proc.ExitCode)" }
     Add-MachinePath 'C:\rtools40\usr\bin', 'C:\rtools40\mingw64\bin'
 
-    Write-Log 'Installing mingw-w64-x86_64-make'
+    Write-Step 'Installing mingw-w64-x86_64-make'
     $code = Invoke-Native 'C:\rtools40\usr\bin\pacman.exe' @('-Sy', '--noconfirm', 'mingw-w64-x86_64-make')
     if ($code -ne 0) { throw "pacman failed with exit code $code" }
 }
@@ -285,7 +285,7 @@ function Install-Rtools {
 
 function Resolve-RunnerVersion([string]$Version) {
     if ($Version) { return $Version.TrimStart('v') }
-    Write-Log 'GITHUB_RUNNER_VERSION not set, using the latest actions/runner release'
+    Write-Step 'GITHUB_RUNNER_VERSION not set, using the latest actions/runner release'
     # The releases/latest page redirects to the tag. Unlike the REST API this has
     # no rate limit, which an unauthenticated call shares with everyone behind
     # the same public IP (60 per hour).
@@ -324,9 +324,9 @@ function Remove-Runner([int]$Index, [string[]]$Auth) {
     # Interactive mode: the listener outlives its cmd window and holds files open
     Get-Process Runner.Listener -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$dir\*" } | Stop-Process -Force
     if (Test-Path -LiteralPath "$dir\.runner") {
-        Write-Log 'Removing the previous registration'
+        Write-Step 'Removing the previous registration'
         $code = Invoke-Native "$dir\config.cmd" (@('remove', '--unattended') + $Auth)
-        if ($code -ne 0) { Write-Log "config.cmd remove exited with $code, continuing" }
+        if ($code -ne 0) { Write-Step "config.cmd remove exited with $code, continuing" }
     }
     if (Test-Path -LiteralPath $dir) { Remove-Item -LiteralPath $dir -Recurse -Force }
 }
@@ -362,7 +362,7 @@ function Install-Runners($Config) {
     # above the new count (RUNNERS was lowered) are removed for good.
     $existing = @(Get-ChildItem -LiteralPath 'C:\' -Directory -Filter 'runner-*' | ForEach-Object { [int]($_.Name -replace '^runner-', '') })
     foreach ($i in ($existing | Where-Object { $_ -gt $count })) {
-        Write-Log "Removing runner $i (RUNNERS is now $count)"
+        Write-Step "Removing runner $i (RUNNERS is now $count)"
         Remove-Runner $i $auth
     }
 
@@ -371,7 +371,7 @@ function Install-Runners($Config) {
         $dir = "C:\runner-$i"
         $name = "${prefix}_${hostId}_$i"
         $names += $name
-        Write-Log "Configuring runner $i of ${count}: $name in $dir"
+        Write-Step "Configuring runner $i of ${count}: $name in $dir"
 
         # A previous registration (re-run) is removed first so --replace has nothing stale to fight.
         Remove-Runner $i $auth
@@ -411,9 +411,9 @@ try {
     # a retry at the next boot. Not re-registered from the task itself.
     if (-not $AtLogon) { Register-SetupTask }
 
-    $configFile = Find-Config -Optional:$AtLogon
+    $configFile = Find-Config $ConfigPath -Optional:$AtLogon
     if (-not $configFile) {
-        Write-Log 'runner.env not found, nothing to do'
+        Write-Step 'runner.env not found, nothing to do'
         $status = 'skipped'
         return
     }
@@ -439,20 +439,20 @@ try {
     }
     Remove-Item -LiteralPath "$Share\install.done", "$Share\install.failed" -Force -ErrorAction SilentlyContinue
     $mirror = Start-LogMirror
-    Write-Log "Using settings from $configFile"
+    Write-Step "Using settings from $configFile"
 
     # Idempotent and quick; also grows C: after a DISK_SIZE change on the host.
     Initialize-System
-    if ($RunnersOnly) { Write-Log 'Toolchain: skipped (-RunnersOnly)' }
-    elseif ($missing) { Write-Log "Toolchain: installing $($missing -join ', ')"; Install-Toolchain $config $missing }
-    else { Write-Log 'Toolchain: all present' }
+    if ($RunnersOnly) { Write-Step 'Toolchain: skipped (-RunnersOnly)' }
+    elseif ($missing) { Write-Step "Toolchain: installing $($missing -join ', ')"; Install-Toolchain $config $missing }
+    else { Write-Step 'Toolchain: all present' }
 
     if ($registerRunners) {
         $result = Install-Runners $config
         Set-Content -LiteralPath $ConfigMarker -Value (Get-ConfigHash $configFile)
-        Write-Log "Registered $($result.Names.Count) runner(s), actions/runner $($result.Version), mode $($result.Mode): $($result.Names -join ', ')"
+        Write-Step "Registered $($result.Names.Count) runner(s), actions/runner $($result.Version), mode $($result.Mode): $($result.Names -join ', ')"
     } else {
-        Write-Log 'Runners: runner.env unchanged, left as they are'
+        Write-Step 'Runners: runner.env unchanged, left as they are'
     }
 
     # Only the fallback location is on the Windows disk; do not leave a PAT there.
@@ -460,12 +460,12 @@ try {
 
     $status = 'done'
     if ($RebootRequired) {
-        Write-Log 'Rebooting in 60 seconds to finish the Visual Studio installation'
+        Write-Step 'Rebooting in 60 seconds to finish the Visual Studio installation'
         shutdown.exe /r /t 60 /c 'Finishing GitHub runner setup'
     }
 } catch {
-    Write-Log "FAILED: $_"
-    Write-Log $_.ScriptStackTrace
+    Write-Step "FAILED: $_"
+    Write-Step $_.ScriptStackTrace
 } finally {
     Remove-Item -LiteralPath $Temp -Recurse -Force -ErrorAction SilentlyContinue
     Stop-Transcript | Out-Null
