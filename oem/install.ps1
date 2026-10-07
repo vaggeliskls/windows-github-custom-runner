@@ -286,8 +286,16 @@ function Install-Rtools {
 function Resolve-RunnerVersion([string]$Version) {
     if ($Version) { return $Version.TrimStart('v') }
     Write-Log 'GITHUB_RUNNER_VERSION not set, using the latest actions/runner release'
-    $release = Invoke-RestMethod 'https://api.github.com/repos/actions/runner/releases/latest' -Headers @{ 'User-Agent' = 'windows-github-custom-runner' }
-    return $release.tag_name.TrimStart('v')
+    # The releases/latest page redirects to the tag. Unlike the REST API this has
+    # no rate limit, which an unauthenticated call shares with everyone behind
+    # the same public IP (60 per hour).
+    $request = [Net.WebRequest]::Create('https://github.com/actions/runner/releases/latest')
+    $request.Method = 'HEAD'
+    $request.AllowAutoRedirect = $false
+    $response = $request.GetResponse()
+    try { $location = $response.Headers['Location'] } finally { $response.Close() }
+    if ($location -notmatch '/tag/v?([\d.]+)$') { throw "Could not determine the latest actions/runner release from '$location'. Set GITHUB_RUNNER_VERSION in .env." }
+    return $Matches[1]
 }
 
 # Interactive mode: run.cmd as a scheduled task in the auto-logon desktop session,
