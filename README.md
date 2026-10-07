@@ -72,7 +72,9 @@ The [docker-compose.yml](docker-compose.yml) is self-contained. If you do not wa
 
 `.env` is used twice. Compose reads it for the `${...}` values in [docker-compose.yml](docker-compose.yml) (VM size, Windows user). It is also bind-mounted to `/shared/runner.env`, which dockur exports to the VM as `\\host.lan\Data\runner.env` (drive `Z:`). [install.ps1](oem/install.ps1) reads `RUNNER_URL`, `PAT`, `RUNNERS` and the rest from there.
 
-> **Remove the mount after the first install.** The shared folder is readable by every process in the VM, including the CI jobs your runners execute, so a workflow could read the `PAT` and the Windows password from `Z:\runner.env`. Once `shared/install.done` appears, comment out the `./.env:/shared/runner.env` line in [docker-compose.yml](docker-compose.yml) and run `docker compose up -d`. Put it back only when you re-run `install.ps1`. A one-hour `TOKEN` limits the exposure further.
+> **Create `.env` before the first `docker compose up`.** If it is missing, Docker creates `.env` as an empty *directory* in its place, the VM sees a folder named `runner.env`, and `install.log` ends with `runner.env is a directory, not a file`. To recover: `docker compose down`, `rmdir .env`, create `.env` from the template, `docker compose up -d`. The VM finishes the install at the next boot, see [Changing settings later](#-changing-settings-later).
+
+> **Remove the mount after the first install.** The shared folder is readable by every process in the VM, including the CI jobs your runners execute, so a workflow could read the `PAT` and the Windows password from `Z:\runner.env`. Once `shared/install.done` appears, comment out the `./.env:/shared/runner.env` line in [docker-compose.yml](docker-compose.yml) and run `docker compose up -d`. Put it back when you change `.env`; without it the logon check described below has nothing to apply. A one-hour `TOKEN` limits the exposure further.
 
 The `oem/` folder itself holds no secrets on purpose: dockur bakes it into the install ISO that stays in `storage/`, and a PAT should not be kept there. `.env`, `storage/` and `shared/` are git-ignored.
 
@@ -96,15 +98,23 @@ On top of Windows Server 2022, [install.ps1](oem/install.ps1) installs:
 
 # 🔧 Changing settings later
 
-Edit `.env` on the host, then connect by RDP and run in an elevated PowerShell:
+Edit `.env` on the host and restart the container:
+
+```bash
+docker compose down && docker compose up -d
+```
+
+The restart matters: editors replace the file on save, and a bind-mounted file keeps pointing at the old copy until the container is recreated. At every logon the VM runs `install.ps1 -AtLogon` from a scheduled task named *GitHub runner setup*. It checks that every toolchain part is present (PowerShell 7, Chocolatey, Git, jq, 7-Zip, and Visual Studio and Rtools when enabled) and installs only what is missing. It then compares `runner.env` with the copy the runners were last registered from and, when it changed, removes the old registrations and re-registers with the new count, labels, version or mode. That is also how a wrong `PAT` or `RUNNER_URL` on the first start is fixed: correct `.env`, restart, wait for `shared/install.done`. When everything is present and nothing changed, the task exits without touching `shared/`. The result of the check is in `shared/install.log` as `Toolchain: all present` or `Toolchain: installing ...`.
+
+The same can be done from an RDP session, in an elevated PowerShell and without a restart:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File C:\OEM\install.ps1 -RunnersOnly
 ```
 
-That removes the old registrations and re-registers with the new count, labels, version or mode. Without `-RunnersOnly` the toolchain steps run again too. To start over completely: `docker compose down`, delete `storage/`, `docker compose up -d`.
+Without `-RunnersOnly` the toolchain steps run again too. To start over completely: `docker compose down`, delete `storage/`, `docker compose up -d`.
 
-`RAM_SIZE`, `CPU_CORES` and `DISK_SIZE` apply on the next `docker compose up`. A larger disk grows `C:` the next time `install.ps1` runs.
+`RAM_SIZE`, `CPU_CORES` and `DISK_SIZE` are passed to QEMU, so they apply at the next restart without any install step. `DISK_SIZE` can only grow; the logon task extends `C:` to the new size at that boot.
 
 # 🌐 Access
 

@@ -18,6 +18,12 @@
     Progress is written to C:\OEM\install.log and copied to the shared folder
     together with an install.done or install.failed marker.
 
+    The first run registers a "GitHub runner setup" scheduled task that runs
+    this script with -AtLogon at every logon. That run repeats the install when
+    a previous run did not finish (wrong PAT, download failure, ...) or
+    re-registers the runners when runner.env changed, so fixing .env on the
+    host and restarting the container is enough. It does nothing otherwise.
+
 .EXAMPLE
     # Re-run from an RDP session after changing runner.env (RUNNERS, labels,
     # version, ...). Skips the toolchain and re-registers the runners.
@@ -29,7 +35,12 @@ param(
     [string]$ConfigPath,
 
     # Skip Chocolatey, Visual Studio and Rtools; only (re)configure the runners.
-    [switch]$RunnersOnly
+    [switch]$RunnersOnly,
+
+    # Used by the "GitHub runner setup" scheduled task. Runs only when the
+    # toolchain install never finished or runner.env changed since the runners
+    # were last registered; exits quietly otherwise.
+    [switch]$AtLogon
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,6 +49,8 @@ $ProgressPreference = 'SilentlyContinue' # Invoke-WebRequest is much faster with
 
 $Share = '\\host.lan\Data'
 $LogFile = 'C:\OEM\install.log'
+$ConfigMarker = 'C:\OEM\runner.env.sha256'  # hash of the runner.env the runners were last registered from
+$SetupTask = 'GitHub runner setup'
 $Temp = Join-Path $env:TEMP 'runner-install'
 $RebootRequired = $false
 
@@ -74,18 +87,41 @@ function Read-EnvFile([string]$Path) {
     return $cfg
 }
 
-function Find-Config {
+# Returns the path of runner.env, or $null with -Optional when there is none.
+function Find-Config([switch]$Optional) {
     if ($ConfigPath) { return $ConfigPath }
     $candidates = @("$Share\runner.env", 'Z:\runner.env', 'C:\OEM\runner.env')
-    # The samba share can take a moment to become reachable after first logon.
+    # The samba share can take a moment to become reachable after logon.
     $deadline = (Get-Date).AddMinutes(5)
     do {
         foreach ($candidate in $candidates) {
-            if (Test-Path -LiteralPath $candidate) { return $candidate }
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+            # Docker creates a missing bind-mount source as an empty directory, so a
+            # folder here means .env did not exist on the host when compose started.
+            if (Test-Path -LiteralPath $candidate -PathType Container) {
+                throw "$candidate is a directory, not a file. .env was missing on the host when 'docker compose up' ran: remove the .env directory, create .env from .env.example, then 'docker compose down' and 'docker compose up -d'."
+            }
         }
         Start-Sleep -Seconds 10
     } while ((Get-Date) -lt $deadline)
+    if ($Optional) { return $null }
     throw "runner.env not found (looked in $($candidates -join ', ')). Check the volumes in docker-compose.yml."
+}
+
+function Get-ConfigHash([string]$Path) {
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+}
+
+# Re-runs this script with -AtLogon at every logon of the auto-logon user, so a
+# corrected or changed runner.env is applied by restarting the container.
+function Register-SetupTask {
+    $user = "$env:USERDOMAIN\$env:USERNAME"
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`" -AtLogon"
+    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
+    $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
+    $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+    $settings.ExecutionTimeLimit = 'PT0S' # a full install can take over an hour
+    Register-ScheduledTask -TaskName $SetupTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
 }
 
 function Get-Setting($Config, [string]$Key, $Default = '') {
@@ -122,21 +158,56 @@ function Initialize-System {
     }
 }
 
-function Install-BaseTools {
-    Write-Log 'Installing PowerShell 7'
-    Invoke-Expression "& { $(Invoke-RestMethod 'https://aka.ms/install-powershell.ps1') } -UseMSI -Quiet"
+function Test-VisualStudio {
+    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (-not (Test-Path -LiteralPath $vswhere)) { return $false }
+    return [bool](& $vswhere -products * -version '[17.0,18.0)' -property installationPath)
+}
 
-    if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+# Names of the toolchain parts that are not installed yet. Decides whether a
+# logon run has anything to do and which installers Install-Toolchain runs.
+function Get-MissingTools($Config) {
+    Update-ProcessPath
+    $checks = [ordered]@{
+        'PowerShell 7' = { Test-Path -LiteralPath "$env:ProgramFiles\PowerShell\7\pwsh.exe" }
+        'Chocolatey'   = { [bool](Get-Command choco -ErrorAction SilentlyContinue) }
+        'Git'          = { [bool](Get-Command git -ErrorAction SilentlyContinue) }
+        'jq'           = { [bool](Get-Command jq -ErrorAction SilentlyContinue) }
+        '7-Zip'        = { Test-Path -LiteralPath "$env:ProgramFiles\7-Zip\7z.exe" }
+    }
+    if (Test-Enabled $Config 'INSTALL_VISUAL_STUDIO') { $checks['Visual Studio'] = { Test-VisualStudio } }
+    if (Test-Enabled $Config 'INSTALL_RTOOLS') {
+        $checks['Rtools'] = { (Test-Path -LiteralPath 'C:\rtools40\usr\bin\pacman.exe') -and (Test-Path -LiteralPath 'C:\rtools40\mingw64\bin\mingw32-make.exe') }
+    }
+    return @($checks.Keys | Where-Object { -not (& $checks[$_]) })
+}
+
+function Install-Toolchain($Config, [string[]]$Missing) {
+    if ($Missing -contains 'PowerShell 7') {
+        Write-Log 'Installing PowerShell 7'
+        Invoke-Expression "& { $(Invoke-RestMethod 'https://aka.ms/install-powershell.ps1') } -UseMSI -Quiet"
+    }
+
+    if ($Missing -contains 'Chocolatey') {
         Write-Log 'Installing Chocolatey'
         Invoke-Expression ((New-Object Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
         Update-ProcessPath
     }
 
-    Write-Log 'Installing Git, jq, 7-Zip'
-    choco install -y --no-progress git.install jq 7zip.install
-    if ($LASTEXITCODE -notin 0, 1641, 3010) { throw "choco install failed with exit code $LASTEXITCODE" }
-    Update-ProcessPath
-    git config --system core.longpaths true
+    $packages = @{ 'Git' = 'git.install'; 'jq' = 'jq'; '7-Zip' = '7zip.install' }
+    $wanted = @($packages.Keys | Where-Object { $Missing -contains $_ } | ForEach-Object { $packages[$_] })
+    if ($wanted) {
+        Write-Log "Installing $($wanted -join ', ') with Chocolatey"
+        choco install -y --no-progress @wanted
+        if ($LASTEXITCODE -notin 0, 1641, 3010) { throw "choco install failed with exit code $LASTEXITCODE" }
+        Update-ProcessPath
+        git config --system core.longpaths true
+    }
+
+    if ($Missing -contains 'Visual Studio') {
+        Install-VisualStudio (Get-Setting $Config 'VS_EDITION' 'enterprise') (Get-Setting $Config 'VS_WORKLOADS' 'Microsoft.VisualStudio.Workload.NativeDesktop')
+    }
+    if ($Missing -contains 'Rtools') { Install-Rtools }
 }
 
 function Install-VisualStudio([string]$Edition, [string]$Workloads) {
@@ -265,26 +336,50 @@ Start-Transcript -Path $LogFile -Append | Out-Null
 New-Item -ItemType Directory -Path $Temp -Force | Out-Null
 $status = 'failed'
 try {
-    $configFile = Find-Config
-    Write-Log "Using settings from $configFile"
+    # Registered before anything that can fail, so a bad runner.env still gets
+    # a retry at the next boot. Not re-registered from the task itself.
+    if (-not $AtLogon) { Register-SetupTask }
+
+    $configFile = Find-Config -Optional:$AtLogon
+    if (-not $configFile) {
+        Write-Log 'runner.env not found, nothing to do'
+        $status = 'skipped'
+        return
+    }
     $config = Read-EnvFile $configFile
 
-    if (-not $RunnersOnly) {
-        Initialize-System
-        Install-BaseTools
-        if (Test-Enabled $config 'INSTALL_VISUAL_STUDIO') {
-            Install-VisualStudio (Get-Setting $config 'VS_EDITION' 'enterprise') (Get-Setting $config 'VS_WORKLOADS' 'Microsoft.VisualStudio.Workload.NativeDesktop')
+    # What is left to do: toolchain parts that are not on the machine, and the
+    # runners when runner.env differs from the one they were registered from.
+    $missing = if ($RunnersOnly) { @() } else { @(Get-MissingTools $config) }
+    $registerRunners = $true
+    if ($AtLogon) {
+        $applied = if (Test-Path -LiteralPath $ConfigMarker) { Get-Content -LiteralPath $ConfigMarker } else { '' }
+        $registerRunners = (Get-ConfigHash $configFile) -ne $applied
+        if (-not $missing -and -not $registerRunners) {
+            $status = 'skipped'
+            return
         }
-        if (Test-Enabled $config 'INSTALL_RTOOLS') { Install-Rtools }
     }
+    Write-Log "Using settings from $configFile"
 
-    $result = Install-Runners $config
+    # Idempotent and quick; also grows C: after a DISK_SIZE change on the host.
+    Initialize-System
+    if ($RunnersOnly) { Write-Log 'Toolchain: skipped (-RunnersOnly)' }
+    elseif ($missing) { Write-Log "Toolchain: installing $($missing -join ', ')"; Install-Toolchain $config $missing }
+    else { Write-Log 'Toolchain: all present' }
+
+    if ($registerRunners) {
+        $result = Install-Runners $config
+        Set-Content -LiteralPath $ConfigMarker -Value (Get-ConfigHash $configFile)
+        Write-Log "Registered $($result.Names.Count) runner(s), actions/runner $($result.Version), mode $($result.Mode): $($result.Names -join ', ')"
+    } else {
+        Write-Log 'Runners: runner.env unchanged, left as they are'
+    }
 
     # Only the fallback location is on the Windows disk; do not leave a PAT there.
     if ($configFile -ieq 'C:\OEM\runner.env') { Remove-Item -LiteralPath $configFile -Force }
 
     $status = 'done'
-    Write-Log "Registered $($result.Names.Count) runner(s), actions/runner $($result.Version), mode $($result.Mode): $($result.Names -join ', ')"
     if ($RebootRequired) {
         Write-Log 'Rebooting in 60 seconds to finish the Visual Studio installation'
         shutdown.exe /r /t 60 /c 'Finishing GitHub runner setup'
@@ -296,14 +391,17 @@ try {
     Remove-Item -LiteralPath $Temp -Recurse -Force -ErrorAction SilentlyContinue
     Stop-Transcript | Out-Null
 
-    # Report back to the host through the shared folder (./shared)
-    try {
-        Copy-Item -LiteralPath $LogFile -Destination "$Share\install.log" -Force
-        Remove-Item -LiteralPath "$Share\install.done", "$Share\install.failed" -Force -ErrorAction SilentlyContinue
-        Set-Content -Path "$Share\install.$status" -Value (Get-Date -Format o)
-    } catch {
-        Write-Host "Could not write to $Share ($_)"
+    # Report back to the host through the shared folder (./shared). A logon run
+    # that found nothing to do leaves the previous log and marker alone.
+    if ($status -ne 'skipped') {
+        try {
+            Copy-Item -LiteralPath $LogFile -Destination "$Share\install.log" -Force
+            Remove-Item -LiteralPath "$Share\install.done", "$Share\install.failed" -Force -ErrorAction SilentlyContinue
+            Set-Content -Path "$Share\install.$status" -Value (Get-Date -Format o)
+        } catch {
+            Write-Host "Could not write to $Share ($_)"
+        }
     }
 }
 
-if ($status -ne 'done') { exit 1 }
+if ($status -eq 'failed') { exit 1 }

@@ -1,7 +1,8 @@
 # GitHub Actions runners on a Windows Server 2022 VM, built on dockur/windows.
 # dockur boots QEMU directly and installs Windows from the Microsoft evaluation
 # ISO on first start; oem/install.bat then installs the toolchain and registers
-# the runners. Later starts boot the installed VM, no provisioning.
+# the runners. Later starts boot the installed VM; a logon task in the VM
+# re-applies runner.env only when it changed or an earlier run did not finish.
 #
 # Settings live in .env (copy .env.example). Compose reads it for the ${...}
 # values below, and the same file is bind-mounted into the VM's shared folder
